@@ -2,7 +2,7 @@
 
 ## 🎯 **Overview**
 
-This is a Rust implementation of the OIF Protocol Solver POC, maintaining the same functionality as the TypeScript version but leveraging Rust's performance and safety features.
+This is a Rust implementation of the OIF Protocol Solver POC
 
 ## 🏗️ **Architecture**
 
@@ -56,7 +56,7 @@ oif-solver-rust/
 └── README.md
 ```
 
-## 🔌 **API Endpoints** (Same as TypeScript)
+## 🔌 **API Endpoints**
 
 | Method | Path                       | Description                    |
 |--------|----------------------------|--------------------------------|
@@ -141,8 +141,7 @@ Using Rust's async ecosystem:
 1. **Simplicity**: Minimal complexity, focus on core functionality
 2. **No Retry Logic**: Keep error handling simple
 3. **Event-Driven**: Maintain event-driven architecture
-4. **Same API**: Identical endpoints to TypeScript version
-5. **POC Focus**: Prioritize working functionality over optimization
+4. **POC Focus**: Prioritize working functionality over optimization
 
 ## 🚀 **Processing Flow**
 

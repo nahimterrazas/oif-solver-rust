@@ -82,8 +82,6 @@ export DESTINATION_RPC_URL="http://localhost:8546"
 
 ## 🔄 Order Lifecycle
 
-The solver implements the same order lifecycle as the TypeScript version:
-
 ```
 pending → processing → filled → finalized
                     ↘  failed
@@ -188,7 +186,7 @@ src/
 
 ### ✅ Implemented (POC Complete)
 
-- **HTTP API**: All endpoints from TypeScript version
+- **HTTP API**:
 - **Order Management**: Submit, track, and finalize orders
 - **Event-Driven Processing**: Automatic order lifecycle management
 - **In-Memory Storage**: Fast order storage and retrieval
