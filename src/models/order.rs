@@ -5,15 +5,34 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StandardOrder {
-    pub nonce: U256,
-    pub maker: Address,
-    pub input_token: Address,
-    pub input_amount: U256,
-    pub output_token: Address,
-    pub output_amount: U256,
-    pub expiry: u64,
+    pub user: Address,
+    pub nonce: u64,
+    #[serde(rename = "originChainId")]
     pub origin_chain_id: u64,
-    pub destination_chain_id: u64,
+    pub expires: u64,
+    #[serde(rename = "fillDeadline")]
+    pub fill_deadline: u64,
+    #[serde(rename = "localOracle")]
+    pub local_oracle: Address,
+    pub inputs: Vec<(String, String)>, // [tokenId, amount] tuples
+    pub outputs: Vec<MandateOutput>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MandateOutput {
+    #[serde(rename = "remoteOracle")]
+    pub remote_oracle: Address,
+    #[serde(rename = "remoteFiller")]
+    pub remote_filler: Address,
+    #[serde(rename = "chainId")]
+    pub chain_id: u64,
+    pub token: Address,
+    pub amount: String,
+    pub recipient: Address,
+    #[serde(rename = "remoteCall", default)]
+    pub remote_call: Option<String>,
+    #[serde(rename = "fulfillmentContext", default)]
+    pub fulfillment_context: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -53,6 +72,14 @@ pub struct OrderResponse {
     pub fill_tx_hash: Option<String>,
     pub finalize_tx_hash: Option<String>,
     pub error_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FillResult {
+    pub success: bool,
+    pub tx_hash: Option<String>,
+    pub gas_cost: Option<U256>,
+    pub error: Option<String>,
 }
 
 impl Order {
@@ -101,6 +128,48 @@ impl Order {
             fill_tx_hash: self.fill_tx_hash.clone(),
             finalize_tx_hash: self.finalize_tx_hash.clone(),
             error_message: self.error_message.clone(),
+        }
+    }
+}
+
+impl MandateOutput {
+    pub fn new(
+        remote_oracle: Address,
+        remote_filler: Address,
+        chain_id: u64,
+        token: Address,
+        amount: String,
+        recipient: Address,
+    ) -> Self {
+        Self {
+            remote_oracle,
+            remote_filler,
+            chain_id,
+            token,
+            amount,
+            recipient,
+            remote_call: Some("0x".to_string()),
+            fulfillment_context: Some("0x".to_string()),
+        }
+    }
+}
+
+impl FillResult {
+    pub fn success(tx_hash: String, gas_cost: Option<U256>) -> Self {
+        Self {
+            success: true,
+            tx_hash: Some(tx_hash),
+            gas_cost,
+            error: None,
+        }
+    }
+
+    pub fn failure(error: String) -> Self {
+        Self {
+            success: false,
+            tx_hash: None,
+            gas_cost: None,
+            error: Some(error),
         }
     }
 }

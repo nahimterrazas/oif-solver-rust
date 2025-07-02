@@ -1,13 +1,5 @@
-use alloy::primitives::{Address, U256};
+use alloy::primitives::U256;
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MandateOutput {
-    pub token: Address,
-    pub amount: U256,
-    pub recipient: Address,
-    pub chain_id: u64,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionResult {
@@ -15,17 +7,6 @@ pub struct ExecutionResult {
     pub tx_hash: Option<String>,
     pub error_message: Option<String>,
     pub gas_used: Option<U256>,
-}
-
-impl MandateOutput {
-    pub fn new(token: Address, amount: U256, recipient: Address, chain_id: u64) -> Self {
-        Self {
-            token,
-            amount,
-            recipient,
-            chain_id,
-        }
-    }
 }
 
 impl ExecutionResult {

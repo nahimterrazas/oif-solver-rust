@@ -4,7 +4,7 @@ use tokio::time::{interval, sleep};
 use tracing::{info, error, warn};
 
 use crate::config::AppConfig;
-use crate::models::{OrderStatus};
+use crate::models::OrderStatus;
 use crate::storage::MemoryStorage;
 use crate::services::{CrossChainService, FinalizationService};
 
@@ -66,7 +66,7 @@ impl OrderMonitoringService {
                     if result.success {
                         info!("Order {} filled successfully", order.id);
                     } else {
-                        warn!("Order {} fill failed: {:?}", order.id, result.error_message);
+                        warn!("Order {} fill failed: {:?}", order.id, result.error);
                     }
                 }
                 Err(e) => {
@@ -98,7 +98,7 @@ impl OrderMonitoringService {
                     if result.success {
                         info!("Order {} finalized successfully", order.id);
                     } else {
-                        warn!("Order {} finalization failed: {:?}", order.id, result.error_message);
+                        warn!("Order {} finalization failed: {:?}", order.id, result.error);
                     }
                 }
                 Err(e) => {
@@ -122,7 +122,7 @@ impl OrderMonitoringService {
                     info!("Order {} finalized successfully", order_id);
                     Ok(true)
                 } else {
-                    warn!("Order {} finalization failed: {:?}", order_id, result.error_message);
+                    warn!("Order {} finalization failed: {:?}", order_id, result.error);
                     Ok(false)
                 }
             }

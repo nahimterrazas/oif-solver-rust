@@ -36,23 +36,24 @@ impl ContractFactory {
 
     pub async fn finalize_order(
         &self,
-        nonce: U256,
-        maker: Address,
+        token_id: U256,
+        user: Address,
         input_token: Address,
         input_amount: U256,
         output_token: Address,
         output_amount: U256,
-        expiry: u64,
+        expires: u64,
         origin_chain_id: u64,
         destination_chain_id: u64,
         signature: Vec<u8>,
     ) -> Result<String> {
         // Simplified implementation for POC
         tracing::info!(
-            "Finalizing order: nonce={}, maker={:?}, input_token={:?}",
-            nonce,
-            maker,
-            input_token
+            "Finalizing order: token_id={}, user={:?}, input_token={:?}, expires={}",
+            token_id,
+            user,
+            input_token,
+            expires
         );
 
         // Simulate transaction hash
