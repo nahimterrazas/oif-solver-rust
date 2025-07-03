@@ -71,6 +71,7 @@ impl MemoryStorage {
                 OrderStatus::Pending => pending += 1,
                 OrderStatus::Processing => processing += 1,
                 OrderStatus::Filled => filled += 1,
+                OrderStatus::Finalizing => processing += 1, // Treat finalizing as processing
                 OrderStatus::Finalized => finalized += 1,
                 OrderStatus::Failed => failed += 1,
             }

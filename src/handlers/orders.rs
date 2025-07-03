@@ -2,6 +2,7 @@ use actix_web::{web, HttpResponse, Result, HttpRequest};
 use serde_json::json;
 use uuid::Uuid;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use crate::models::{Order, OrderSubmission, OrderResponse};
 use crate::storage::MemoryStorage;
@@ -19,6 +20,10 @@ pub async fn submit_order(
     match storage.store_order(order).await {
         Ok(_) => {
             tracing::info!("Order {} submitted successfully", order_id);
+            tracing::info!("========================================");
+            tracing::info!("📋 ORDER ID: {}", order_id);
+            tracing::info!("🔗 Test finalization with: curl -X POST http://127.0.0.1:3000/api/v1/orders/{}/finalize", order_id);
+            tracing::info!("========================================");
             
             Ok(HttpResponse::Created().json(json!({
                 "id": order_id,
@@ -76,7 +81,7 @@ pub async fn get_order(
 pub async fn finalize_order(
     path: web::Path<String>,
     storage: web::Data<MemoryStorage>,
-    monitoring_service: web::Data<OrderMonitoringService>,
+    monitoring_service: web::Data<Arc<OrderMonitoringService>>,
 ) -> Result<HttpResponse> {
     let order_id_str = path.into_inner();
     

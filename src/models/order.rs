@@ -35,11 +35,12 @@ pub struct MandateOutput {
     pub fulfillment_context: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum OrderStatus {
     Pending,
     Processing,
     Filled,
+    Finalizing,
     Finalized,
     Failed,
 }

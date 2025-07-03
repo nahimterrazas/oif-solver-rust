@@ -8,6 +8,7 @@ pub struct AppConfig {
     pub solver: SolverConfig,
     pub chains: ChainConfig,
     pub contracts: ContractConfig,
+    pub monitoring: MonitoringConfig,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -19,6 +20,7 @@ pub struct ServerConfig {
 #[derive(Debug, Deserialize, Clone)]
 pub struct SolverConfig {
     pub private_key: String,
+    pub finalization_delay_seconds: u64,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -40,14 +42,31 @@ pub struct ContractConfig {
     pub coin_filler: String,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+pub struct MonitoringConfig {
+    pub enabled: bool,
+    pub check_interval_seconds: u64,
+}
+
 impl AppConfig {
     pub async fn load() -> Result<Self> {
+        tracing::info!("Loading configuration...");
+        
         let settings = config::Config::builder()
             .add_source(config::File::with_name("config/local").required(false))
             .add_source(config::Environment::with_prefix("OIF_SOLVER"))
             .build()?;
 
-        let mut config: AppConfig = settings.try_deserialize()?;
+        let mut config: AppConfig = match settings.try_deserialize() {
+            Ok(config) => {
+                tracing::info!("Configuration loaded from file/environment");
+                config
+            }
+            Err(_) => {
+                tracing::warn!("Could not load configuration from file/environment, using defaults");
+                AppConfig::default()
+            }
+        };
 
         // Override with environment variables if present
         if let Ok(private_key) = std::env::var("SOLVER_PRIVATE_KEY") {
@@ -62,6 +81,11 @@ impl AppConfig {
             config.chains.destination.rpc_url = dest_rpc;
         }
 
+        tracing::info!("Final configuration:");
+        tracing::info!("  Server: {}:{}", config.server.host, config.server.port);
+        tracing::info!("  Origin chain: {}", config.chains.origin.rpc_url);
+        tracing::info!("  Destination chain: {}", config.chains.destination.rpc_url);
+
         Ok(config)
     }
 }
@@ -75,6 +99,7 @@ impl Default for AppConfig {
             },
             solver: SolverConfig {
                 private_key: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80".to_string(),
+                finalization_delay_seconds: 30,
             },
             chains: ChainConfig {
                 origin: ChainDetails {
@@ -90,6 +115,10 @@ impl Default for AppConfig {
                 the_compact: "0x0000000000000000000000000000000000000000".to_string(),
                 settler_compact: "0x0000000000000000000000000000000000000000".to_string(),
                 coin_filler: "0x0000000000000000000000000000000000000000".to_string(),
+            },
+            monitoring: MonitoringConfig {
+                enabled: true,
+                check_interval_seconds: 60,
             },
         }
     }

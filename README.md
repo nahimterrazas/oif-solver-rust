@@ -75,7 +75,7 @@ coin_filler = "0x..."
 ### Environment Variables
 
 ```bash
-export SOLVER_PRIVATE_KEY="0x..."
+export SOLVER_PRIVATE_KEY="0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a"
 export ORIGIN_RPC_URL="http://localhost:8545"
 export DESTINATION_RPC_URL="http://localhost:8546"
 ```
