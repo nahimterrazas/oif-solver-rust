@@ -1,16 +1,14 @@
 use alloy::{
     primitives::{Address, U256, FixedBytes, Bytes},
-    providers::{ProviderBuilder, RootProvider, Provider},
+    providers::{ProviderBuilder, Provider},
     transports::http::{Client, Http},
     rpc::types::{TransactionRequest, TransactionInput},
     sol,
     sol_types::{SolValue, SolCall},
     signers::local::PrivateKeySigner,
-    network::EthereumWallet,
-    network::ReceiptResponse,
-    signers::Signature,
+    network::{EthereumWallet, Ethereum},
     primitives::keccak256,
-    contract::SolCallBuilder
+    dyn_abi::{DynSolValue, DynSolType},
 };
 use anyhow::Result;
 use std::str::FromStr;
@@ -72,11 +70,10 @@ sol! {
     }
 }
 
-#[derive(Clone)]
 pub struct ContractFactory {
     pub config: AppConfig,
-    origin_provider: Option<RootProvider<Http<Client>>>,
-    destination_provider: Option<RootProvider<Http<Client>>>,
+    origin_provider: Option<Box<dyn Provider + Send + Sync>>,
+    destination_provider: Option<Box<dyn Provider + Send + Sync>>,
     wallet: Option<EthereumWallet>,
 }
 
@@ -106,13 +103,13 @@ impl ContractFactory {
         let origin_provider = ProviderBuilder::new()
             .on_http(self.config.chains.origin.rpc_url.parse()
                 .map_err(|e| anyhow::anyhow!("Invalid origin RPC URL '{}': {}", self.config.chains.origin.rpc_url, e))?);
-        self.origin_provider = Some(origin_provider);
+        self.origin_provider = Some(Box::new(origin_provider));
 
         // Create destination chain provider  
         let destination_provider = ProviderBuilder::new()
             .on_http(self.config.chains.destination.rpc_url.parse()
                 .map_err(|e| anyhow::anyhow!("Invalid destination RPC URL '{}': {}", self.config.chains.destination.rpc_url, e))?);
-        self.destination_provider = Some(destination_provider);
+        self.destination_provider = Some(Box::new(destination_provider));
 
         info!("Blockchain providers initialized successfully");
         Ok(())
@@ -150,7 +147,6 @@ impl ContractFactory {
         
         // Create signing provider for destination chain
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet.clone())
             .on_http(self.config.chains.destination.rpc_url.parse()?);
 
@@ -192,7 +188,7 @@ impl ContractFactory {
 
         // Use the sol! macro to encode the function call
         let call_data = CoinFiller::fillCall {
-            fillDeadline: fill_deadline,
+            fillDeadline: u32::MAX, // Use uint32::MAX like TypeScript, not the actual order deadline
             orderId: order_id_bytes32,
             output: mandate_output,
             proposedSolver: proposed_solver,
@@ -209,8 +205,8 @@ impl ContractFactory {
             .input(TransactionInput::from(call_data.clone()));
         
         // Set gas parameters explicitly
-        tx_request.gas = Some(360000u128.into());  // Match TypeScript gasLimit
-        tx_request.gas_price = Some(50_000_000_000u128.into()); // 50 gwei
+        tx_request.gas = Some(360000u64.into());  // Match TypeScript gasLimit
+        tx_request.gas_price = Some(50_000_000_000u64.into()); // 50 gwei
 
         info!("Transaction request details:");
         info!("  To: {:?}", tx_request.to);
@@ -271,7 +267,6 @@ impl ContractFactory {
         
         // Create signing provider for origin chain (where SettlerCompact is deployed)
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet.clone())
             .on_http(self.config.chains.origin.rpc_url.parse()?);
 
@@ -309,6 +304,33 @@ impl ContractFactory {
                 
                 info!("🔢 Output[{}]: amount={} ({})", i, amount_u256, output.amount);
                 
+                // Handle remoteCall and fulfillmentContext - EXACTLY match TypeScript '0x' encoding
+                let remote_call = match &output.remote_call {
+                    Some(s) if !s.is_empty() && s != "null" => {
+                        Bytes::from(hex::decode(s.strip_prefix("0x").unwrap_or(s)).unwrap_or_default())
+                    }
+                    _ => {
+                        // TypeScript: remoteCall: output.remoteCall || '0x'
+                        // Force explicit empty bytes encoding to match TypeScript ABI
+                        Bytes::from(vec![])
+                    }
+                };
+                
+                let fulfillment_context = match &output.fulfillment_context {
+                    Some(s) if !s.is_empty() && s != "null" => {
+                        Bytes::from(hex::decode(s.strip_prefix("0x").unwrap_or(s)).unwrap_or_default())
+                    }
+                    _ => {
+                        // TypeScript: fulfillmentContext: output.fulfillmentContext || '0x'  
+                        // This encodes as empty bytes but with proper ABI encoding
+                        Bytes::new()
+                    }
+                };
+                
+                info!("🔍 Output[{}] field handling:", i);
+                info!("  remoteCall: {} bytes", remote_call.len());
+                info!("  fulfillmentContext: {} bytes", fulfillment_context.len());
+                
                 Ok(MandateOutput {
                     remoteOracle: self.address_to_bytes32(output.remote_oracle),
                     remoteFiller: self.address_to_bytes32(output.remote_filler),
@@ -316,14 +338,8 @@ impl ContractFactory {
                     token: self.address_to_bytes32(output.token),
                     amount: amount_u256,
                     recipient: self.address_to_bytes32(output.recipient),
-                    remoteCall: output.remote_call.as_ref()
-                        .and_then(|s| hex::decode(s.strip_prefix("0x").unwrap_or(s)).ok())
-                        .unwrap_or_default()
-                        .into(),
-                    fulfillmentContext: output.fulfillment_context.as_ref()
-                        .and_then(|s| hex::decode(s.strip_prefix("0x").unwrap_or(s)).ok())
-                        .unwrap_or_default()
-                        .into(),
+                    remoteCall: remote_call,
+                    fulfillmentContext: fulfillment_context,
                 })
             })
             .collect();
@@ -347,15 +363,30 @@ impl ContractFactory {
             return Err(anyhow::anyhow!("Order has empty signature"));
         }
 
-        // Encode signatures: [sponsorSig, allocatorSig] - MATCH TypeScript exactly
-        let sponsor_sig = Bytes::from(hex::decode(order.signature.strip_prefix("0x").unwrap_or(&order.signature))
-            .map_err(|e| anyhow::anyhow!("Invalid signature format: '{}' - {}", order.signature, e))?);
+        // Encode signatures: [sponsorSig, allocatorSig] - ROBUST signature validation
+        let sponsor_sig = {
+            let sig_str = order.signature.strip_prefix("0x").unwrap_or(&order.signature);
+            if sig_str.is_empty() {
+                return Err(anyhow::anyhow!("Empty signature"));
+            }
+            if sig_str.len() % 2 != 0 {
+                return Err(anyhow::anyhow!("Odd-length hex signature: '{}'", order.signature));
+            }
+            // Validate signature is exactly 65 bytes (130 hex chars) for ECDSA
+            if sig_str.len() != 130 {
+                return Err(anyhow::anyhow!("Invalid signature length: {} chars, expected 130 for ECDSA", sig_str.len()));
+            }
+            Bytes::from(hex::decode(sig_str)
+                .map_err(|e| anyhow::anyhow!("Invalid hex in signature '{}': {}", order.signature, e))?)
+        };
         let allocator_sig = Bytes::new(); // Empty for AlwaysOKAllocator
         
-        // ABI encode the signatures array - match TypeScript: encode(['bytes', 'bytes'], [sponsorSig, allocatorSig])
-        use alloy::sol_types::{SolValue, sol_data};
-        let signatures_array = vec![sponsor_sig.clone(), allocator_sig.clone()];
-        let signatures = signatures_array.abi_encode();
+        info!("✅ Signature validation passed: {} bytes", sponsor_sig.len());
+        
+        // ABI encode as TUPLE (bytes, bytes) - match TypeScript: encode(['bytes', 'bytes'], [sponsorSig, allocatorSig])
+        // This is the KEY FIX: TypeScript ['bytes', 'bytes'] = tuple, not dynamic array!
+        use alloy::sol_types::SolValue;
+        let signatures = (sponsor_sig.clone(), allocator_sig.clone()).abi_encode();
 
         // Create timestamps array (current time) - EXACT TypeScript match: Math.floor(Date.now() / 1000)
         let current_timestamp = std::time::SystemTime::now()
@@ -374,8 +405,10 @@ impl ContractFactory {
         // Set destination (where tokens go - same as solver)
         let destination = solver_identifier;
 
-        // Empty calls
-        let calls = Bytes::new();
+        // TypeScript uses EMPTY calls - match exactly!
+        // Ensure we use the exact same encoding as TypeScript '0x'
+        let calls = Bytes::from(hex::decode("").unwrap_or_default());
+        info!("🔍 Using empty calls parameter (matches TypeScript '0x' implementation)");
 
         info!("SettlerCompact.finalise() parameters:");
         info!("  User: {:?}", contract_order.user);
@@ -403,35 +436,53 @@ impl ContractFactory {
         info!("  Contract address: {:?}", settler_compact_address);
 
         // Store values for debug logging before move
-        let debug_user = contract_order.user;
-        let debug_nonce = contract_order.nonce;
-        let debug_inputs_len = contract_order.inputs.len();
-        let debug_outputs_len = contract_order.outputs.len();
-        let debug_expires = contract_order.expires;
-        let debug_fill_deadline = contract_order.fillDeadline;
-        let debug_origin_chain_id = contract_order.originChainId;
-        let debug_local_oracle = contract_order.localOracle;
-        let debug_input_0 = contract_order.inputs[0];
-        let debug_output_0_chain_id = contract_order.outputs[0].chainId;
-        let debug_output_0_amount = contract_order.outputs[0].amount;
         let debug_signatures_len = signatures.len();
-        let debug_timestamps = timestamps.clone();
+        let debug_timestamps_len = timestamps.len();
+        let debug_solvers_len = solvers.len();
         let debug_calls_len = calls.len();
 
-        // Use the sol! macro to encode the function call
-        let call_data = SettlerCompact::finaliseCall {
-            order: contract_order,
-            signatures: signatures.into(),
-            timestamps,
-            solvers,
-            destination,
-            calls,
-        }.abi_encode();
+        // Manual ABI encoding to fix dynamic array bug
+        let call_data = self.encode_finalize_call_manual(
+            &contract_order,
+            &signatures,
+            &timestamps,
+            &solvers,
+            &destination,
+            &calls,
+        )?;
 
         info!("Raw finalization transaction data:");
         info!("  Call data length: {} bytes", call_data.len());
         info!("  Call data (hex): 0x{}", hex::encode(&call_data));
         info!("  Function selector: 0x{}", hex::encode(&call_data[..4]));
+        
+        // DETAILED BREAKDOWN FOR DEBUGGING vs TypeScript (2698 bytes)
+        info!("🔍 DEBUGGING: Rust call data breakdown:");
+        info!("  Expected TypeScript call data size: 2698 bytes");
+        info!("  Actual Rust call data size: {} bytes", call_data.len());
+        info!("  Size difference: {} bytes", 2698_i32 - call_data.len() as i32);
+        
+        // Break down the call data structure to debug encoding differences
+        let breakdown_info = format!(
+            "
+🔍 Call data structure analysis:
+  - Function selector (4 bytes): 0x{}
+  - Order struct size estimate: ~{} bytes  
+  - Signatures tuple size: {} bytes
+  - Timestamps array size: ~{} bytes
+  - Solvers array size: ~{} bytes
+  - Destination (32 bytes): 32 bytes
+  - Calls (empty): ~{} bytes
+  - Total overhead (offsets/lengths): ~{} bytes",
+            hex::encode(&call_data[..4]),
+            call_data.len() - 200, // rough estimate
+            debug_signatures_len,
+            debug_timestamps_len * 32 + 32, // U256 array
+            debug_solvers_len * 32 + 32,    // bytes32 array  
+            debug_calls_len + 32,           // bytes
+            200                         // ABI encoding overhead
+        );
+        info!("{}", breakdown_info);
 
         // Create transaction request with explicit from address
         let mut tx_request = TransactionRequest::default()
@@ -439,9 +490,9 @@ impl ContractFactory {
             .from(wallet.default_signer().address())
             .input(TransactionInput::from(call_data.clone()));
         
-        // Try with lower gas parameters first
-        tx_request.gas = Some(500000u128.into());  // Lower gas limit
-        tx_request.gas_price = Some(10_000_000_000u128.into()); // 10 gwei instead of 50
+        // Use EXACT same gas parameters as working TypeScript version
+        tx_request.gas = Some(650000u64.into());  // Match TypeScript gas limit
+        tx_request.gas_price = Some(1178761408u64.into()); // Match TypeScript gas price
 
         info!("Transaction request details:");
         info!("  To: {:?}", tx_request.to);
@@ -453,8 +504,49 @@ impl ContractFactory {
 
         info!("Sending SettlerCompact.finalise() transaction...");
 
-        // Skip static call for now and try direct transaction
-        info!("🚀 Attempting direct transaction (skipping static call)...");
+        // First, try a static call to get detailed revert reason if it would fail
+        info!("🔍 Testing finalization call statically first...");
+        
+        // Create a provider without signer for static call
+        let static_provider = ProviderBuilder::new()
+            .on_http(self.config.chains.origin.rpc_url.parse()?);
+            
+        // Prepare static call transaction
+        let static_tx_request = TransactionRequest::default()
+            .to(settler_compact_address)
+            .from(wallet.default_signer().address())
+            .input(TransactionInput::from(call_data.clone()));
+            
+        match static_provider.call(static_tx_request).await {
+            Ok(result) => {
+                info!("✅ Static call succeeded, proceeding with actual transaction...");
+                info!("   Static call result: 0x{}", hex::encode(&result));
+            }
+            Err(static_error) => {
+                error!("❌ Static call failed, this will help debug the issue:");
+                error!("📋 Revert reason: {:?}", static_error);
+                
+                // Try to decode common error signatures
+                if let Some(error_data) = static_error.to_string().split("data: ").nth(1) {
+                    if let Some(hex_data) = error_data.split('"').next() {
+                        info!("📋 Raw error data: {}", hex_data);
+                        
+                        // Try to decode as string if it looks like revert reason
+                        if hex_data.len() > 8 && hex_data.starts_with("0x08c379a0") {
+                            // Standard Error(string) signature
+                            if let Ok(decoded_bytes) = hex::decode(&hex_data[10..]) {
+                                if let Ok(error_msg) = String::from_utf8(decoded_bytes) {
+                                    error!("📋 Decoded error message: {}", error_msg);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Still proceed with the transaction to get more detailed logs
+                info!("🚀 Proceeding with actual transaction despite static call failure...");
+            }
+        }
 
         // Send transaction and get pending transaction
         let pending_tx = provider.send_transaction(tx_request).await
@@ -499,19 +591,108 @@ impl ContractFactory {
 
     // Helper methods for real blockchain execution (to be implemented)
     
-    pub fn get_origin_provider(&self) -> Result<&RootProvider<Http<Client>>> {
+    pub fn get_origin_provider(&self) -> Result<&(dyn Provider + Send + Sync)> {
         self.origin_provider.as_ref()
+            .map(|p| p.as_ref())
             .ok_or_else(|| anyhow::anyhow!("Origin provider not initialized"))
     }
 
-    pub fn get_destination_provider(&self) -> Result<&RootProvider<Http<Client>>> {
+    pub fn get_destination_provider(&self) -> Result<&(dyn Provider + Send + Sync)> {
         self.destination_provider.as_ref()
+            .map(|p| p.as_ref())
             .ok_or_else(|| anyhow::anyhow!("Destination provider not initialized"))
     }
 
     pub fn get_wallet(&self) -> Result<&EthereumWallet> {
         self.wallet.as_ref()
             .ok_or_else(|| anyhow::anyhow!("Wallet not initialized"))
+    }
+
+    // Manual ABI encoding to fix dynamic array length bug
+    fn encode_finalize_call_manual(
+        &self,
+        order: &StandardOrder,
+        signatures: &[u8],
+        timestamps: &[U256],
+        solvers: &[FixedBytes<32>],
+        destination: &FixedBytes<32>,
+        calls: &Bytes,
+    ) -> Result<Vec<u8>> {
+        use alloy::dyn_abi::{DynSolValue, DynSolType};
+
+        // 1. Build MandateOutput as DynSolValue::Tuple
+        let mandate_outputs: Vec<DynSolValue> = order.outputs.iter().map(|output| {
+            DynSolValue::Tuple(vec![
+                DynSolValue::FixedBytes(output.remoteOracle.into(), 32),
+                DynSolValue::FixedBytes(output.remoteFiller.into(), 32),
+                DynSolValue::Uint(output.chainId, 256),
+                DynSolValue::FixedBytes(output.token.into(), 32),
+                DynSolValue::Uint(output.amount, 256),
+                DynSolValue::FixedBytes(output.recipient.into(), 32),
+                DynSolValue::Bytes(output.remoteCall.to_vec()),
+                DynSolValue::Bytes(output.fulfillmentContext.to_vec()),
+            ])
+        }).collect();
+
+        // 2. Build StandardOrder as DynSolValue::Tuple
+        let inputs: Vec<DynSolValue> = order.inputs.iter().map(|(token_id, amount)| {
+            DynSolValue::Tuple(vec![
+                DynSolValue::Uint(*token_id, 256),
+                DynSolValue::Uint(*amount, 256),
+            ])
+        }).collect();
+
+        let order_tuple = DynSolValue::Tuple(vec![
+            DynSolValue::Address(order.user),
+            DynSolValue::Uint(order.nonce, 256),
+            DynSolValue::Uint(order.originChainId, 256),
+            DynSolValue::Uint(order.expires, 256),
+            DynSolValue::Uint(order.fillDeadline, 256),
+            DynSolValue::Address(order.localOracle),
+            DynSolValue::Array(inputs),
+            DynSolValue::Array(mandate_outputs), // This should include proper array length!
+        ]);
+
+        // 3. Build other parameters
+        let signatures_val = DynSolValue::Bytes(signatures.to_vec());
+        
+        let timestamps_val = DynSolValue::Array(
+            timestamps.iter().map(|t| DynSolValue::Uint(*t, 256)).collect()
+        );
+        
+        let solvers_val = DynSolValue::Array(
+            solvers.iter().map(|s| DynSolValue::FixedBytes((*s).into(), 32)).collect()
+        );
+        
+        let destination_val = DynSolValue::FixedBytes((*destination).into(), 32);
+        let calls_val = DynSolValue::Bytes(calls.to_vec());
+
+        // 4. Encode the function parameters
+        let function_args = vec![
+            order_tuple,
+            signatures_val,
+            timestamps_val,
+            solvers_val,
+            destination_val,
+            calls_val,
+        ];
+
+        // Calculate function selector for finalise(...)
+        let selector = keccak256("finalise((address,uint256,uint256,uint256,uint256,address,(uint256,uint256)[],(bytes32,bytes32,uint256,bytes32,uint256,bytes32,bytes,bytes)[]),bytes,uint256[],bytes32[],bytes32,bytes)".as_bytes());
+        let function_selector = &selector[0..4];
+
+        // Encode just the parameters 
+        let params_value = DynSolValue::Tuple(function_args);
+        let encoded_params = params_value.abi_encode();
+
+        // Combine selector + encoded params
+        let mut call_data = Vec::new();
+        call_data.extend_from_slice(function_selector);
+        call_data.extend_from_slice(&encoded_params);
+
+        info!("✅ Manual ABI encoding completed: {} bytes", call_data.len());
+
+        Ok(call_data)
     }
 
     // Utility methods for contract interaction
