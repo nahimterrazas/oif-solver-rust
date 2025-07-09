@@ -1,9 +1,9 @@
 [
   {
-    "id": "231ed11a-8c4c-45c9-bc8e-7e29319c3f3e",
+    "id": "e1c211fd-f8ee-4b71-9e4b-3f85cf7712da",
     "standard_order": {
       "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-      "nonce": 744,
+      "nonce": 152,
       "originChainId": 31337,
       "expires": 4294967295,
       "fillDeadline": 4294967295,
@@ -27,12 +27,12 @@
         }
       ]
     },
-    "signature": "0x4fee61b31bd452d360492cbfe06f41eb5cb80f03402aa1b17480100d3579794b6025ebf4d16c0d4b3a255c853b7e1c159b24517b0d16bc5bea58782dee7b788c1b",
+    "signature": "0x99059fa3d6efe42d5a9b94e733527eff1837aecde569dbf6d0b1aeaf71ca78133f045992ff10899a8a038557393cdd9027844b16588e1d8155fc1bb68c2363a61c",
     "status": "Failed",
-    "created_at": "2025-07-03T19:44:07.165744Z",
-    "updated_at": "2025-07-04T13:03:55.058648Z",
-    "fill_tx_hash": "0x56d9a71177443ea084d10bd9ee9da3c0c2805d1b0feb7190fa3a674aaf8265c5",
+    "created_at": "2025-07-07T18:58:24.438477Z",
+    "updated_at": "2025-07-07T19:57:23.590806Z",
+    "fill_tx_hash": "0x834d4d651ab162be6ec6536dcf74b8bf79cfc4608e8e2d828d47cffe05b5f039",
     "finalize_tx_hash": null,
-    "error_message": "Finalization execution error: Finalization transaction reverted: 0x097ae8a8a4ee857de8a6eac150485286ad68846eb51e4a9348a7fc6a4eb1755f"
+    "error_message": "Finalization execution error: Wrong function selector: 0xee0174cb, expected 0xa80b6640"
   }
 ]

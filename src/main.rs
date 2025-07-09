@@ -1,10 +1,11 @@
-mod config;
-mod server;
-mod models;
-mod services;
-mod contracts;
-mod storage;
-mod handlers;
+pub mod config;
+pub mod contracts;
+pub mod handlers;
+pub mod models;
+pub mod server;
+pub mod services;
+pub mod storage;
+pub mod eip712;
 
 use anyhow::Result;
 use tracing::{info, error, warn};
