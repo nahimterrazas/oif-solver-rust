@@ -3793,6 +3793,7 @@ dependencies = [
  "actix-web",
  "alloy",
  "anyhow",
+ "async-trait",
  "bytes",
  "chrono",
  "config",

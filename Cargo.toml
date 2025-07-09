@@ -55,6 +55,9 @@ ethabi = "18"
 # CRITICAL FIX: Add full ethers for contract interface (to match TypeScript exactly)
 ethers = { version = "2", features = ["abigen", "ws", "rustls"] }
 
+# Async traits for dyn compatibility
+async-trait = "0.1"
+
 [dev-dependencies]
 tokio-test = "0.4" 
 

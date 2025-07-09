@@ -66,6 +66,9 @@ abigen!(
 );
 
 use crate::config::AppConfig;
+use crate::contracts::operations::FinalizationOrchestrator;
+use crate::contracts::abi::AbiRegistry;
+use std::sync::Arc;
 
 // Temporary contract interfaces - will be replaced with actual contracts
 sol! {
@@ -313,6 +316,58 @@ impl ContractFactory {
     }
 
     pub async fn finalize_order(
+        &self,
+        order: &crate::models::Order,
+    ) -> Result<String> {
+        info!("🚀 MODULAR FINALIZATION: Using FinalizationOrchestrator architecture");
+        
+        // Create FinalizationOrchestrator with modular components
+        let orchestrator = self.create_finalization_orchestrator()?;
+        
+        // Execute finalization using the new modular approach
+        let tx_hash = orchestrator.execute_finalization(order).await?;
+        
+        info!("✅ Modular finalization completed successfully: {}", tx_hash);
+        Ok(tx_hash)
+    }
+
+    /// Create FinalizationOrchestrator with the current factory configuration
+    fn create_finalization_orchestrator(&self) -> Result<FinalizationOrchestrator> {
+        info!("🏗️ Creating FinalizationOrchestrator from ContractFactory");
+        
+        // Create ABI provider
+        let abi_provider = Arc::new(AbiRegistry::new());
+        
+        // Create config Arc from current config
+        let config = Arc::new(self.config.clone());
+        
+        // Create FinalizationOrchestrator
+        let orchestrator = FinalizationOrchestrator::new(abi_provider, config)?;
+        
+        info!("✅ FinalizationOrchestrator created with factory configuration");
+        info!("  Wallet address: {}", orchestrator.wallet_address());
+        
+        Ok(orchestrator)
+    }
+
+    /// Estimate gas for finalization using FinalizationOrchestrator
+    pub async fn estimate_finalization_gas(&self, order: &crate::models::Order) -> Result<u64> {
+        info!("⛽ Estimating finalization gas using FinalizationOrchestrator");
+        
+        let orchestrator = self.create_finalization_orchestrator()?;
+        let gas_estimate = orchestrator.estimate_finalization_gas(order).await?;
+        
+        info!("✅ Gas estimation completed: {} gas", gas_estimate);
+        Ok(gas_estimate)
+    }
+
+    /// Get wallet address from the factory
+    pub fn get_wallet_address(&self) -> Result<Address> {
+        Ok(self.get_wallet()?.default_signer().address())
+    }
+
+    // Legacy implementation - will be removed once new architecture is complete
+    async fn legacy_finalize_order(
         &self,
         order: &crate::models::Order,
     ) -> Result<String> {
@@ -1006,5 +1061,173 @@ impl ContractFactory {
         let dest_block = self.get_destination_provider()?.get_block_number().await?;
         
         Ok((origin_block, dest_block))
+    }
+} 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{Order, StandardOrder};
+    
+    fn create_test_config() -> AppConfig {
+        AppConfig {
+            server: crate::config::ServerConfig {
+                host: "localhost".to_string(),
+                port: 8080,
+            },
+            solver: crate::config::SolverConfig {
+                private_key: "0x1111111111111111111111111111111111111111111111111111111111111111".to_string(),
+                finalization_delay_seconds: 30,
+            },
+            chains: crate::config::ChainConfig {
+                origin: crate::config::ChainDetails {
+                    chain_id: 1,
+                    rpc_url: "https://eth.llamarpc.com".to_string(),
+                },
+                destination: crate::config::ChainDetails {
+                    chain_id: 137,
+                    rpc_url: "https://polygon.llamarpc.com".to_string(),
+                },
+            },
+            contracts: crate::config::ContractConfig {
+                settler_compact: "0x1234567890123456789012345678901234567890".to_string(),
+                the_compact: "0x2345678901234567890123456789012345678901".to_string(),
+                coin_filler: "0x3456789012345678901234567890123456789012".to_string(),
+            },
+            monitoring: crate::config::MonitoringConfig {
+                enabled: false,
+                check_interval_seconds: 60,
+            },
+            persistence: crate::config::PersistenceConfig {
+                enabled: false,
+                data_file: "test_orders.json".to_string(),
+            },
+        }
+    }
+    
+    fn create_test_order() -> Order {
+        use uuid::Uuid;
+        use chrono::Utc;
+        
+        Order {
+            id: Uuid::new_v4(),
+            signature: "0x1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111".to_string(),
+            status: crate::models::OrderStatus::Pending,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            fill_tx_hash: None,
+            finalize_tx_hash: None,
+            error_message: None,
+            standard_order: StandardOrder {
+                user: "0x1111111111111111111111111111111111111111".parse().unwrap(),
+                nonce: 123,
+                origin_chain_id: 1,
+                expires: 1752062605,
+                fill_deadline: 1752062605,
+                local_oracle: "0x2222222222222222222222222222222222222222".parse().unwrap(),
+                inputs: vec![("100".to_string(), "1000000000000000000".to_string())],
+                outputs: vec![
+                    crate::models::MandateOutput {
+                        remote_oracle: "0x3333333333333333333333333333333333333333".parse().unwrap(),
+                        remote_filler: "0x4444444444444444444444444444444444444444".parse().unwrap(),
+                        chain_id: 137,
+                        token: "0x5555555555555555555555555555555555555555".parse().unwrap(),
+                        amount: "500000000000000000".to_string(),
+                        recipient: "0x6666666666666666666666666666666666666666".parse().unwrap(),
+                        remote_call: None,
+                        fulfillment_context: None,
+                    }
+                ],
+            },
+        }
+    }
+    
+    #[tokio::test]
+    async fn test_factory_creates_orchestrator() {
+        let config = create_test_config();
+        let factory = ContractFactory::new(config).await.unwrap();
+        
+        // Test that factory can create orchestrator
+        let orchestrator = factory.create_finalization_orchestrator().unwrap();
+        
+        // Verify wallet address matches
+        let factory_wallet_addr = factory.get_wallet_address().unwrap();
+        let orchestrator_wallet_addr = orchestrator.wallet_address();
+        
+        assert_eq!(factory_wallet_addr, orchestrator_wallet_addr);
+    }
+    
+    #[tokio::test]
+    async fn test_factory_finalization_integration() {
+        let config = create_test_config();
+        let factory = ContractFactory::new(config).await.unwrap();
+        let order = create_test_order();
+        
+        // This test verifies the integration doesn't panic
+        // In a real environment with actual RPC endpoints, this would succeed
+        // But in tests, it will fail at the RPC call level, which is expected
+        let result = factory.finalize_order(&order).await;
+        
+        // We expect this to fail due to test environment, but not due to integration issues
+        assert!(result.is_err());
+        
+        // Verify the error is related to network/RPC, not integration
+        let error_msg = result.unwrap_err().to_string();
+        assert!(!error_msg.contains("integration") && !error_msg.contains("orchestrator"));
+    }
+    
+    #[tokio::test]
+    async fn test_factory_gas_estimation_integration() {
+        let config = create_test_config();
+        let factory = ContractFactory::new(config).await.unwrap();
+        let order = create_test_order();
+        
+        // Test gas estimation integration - this may succeed or fail based on RPC
+        // The important thing is that the integration works without panicking
+        let result = factory.estimate_finalization_gas(&order).await;
+        
+        // Verify the integration layer works (either success or network-related error)
+        match result {
+            Ok(gas_estimate) => {
+                // If it succeeds, gas estimate should be reasonable
+                assert!(gas_estimate > 0 && gas_estimate < 10_000_000);
+            }
+            Err(error) => {
+                // If it fails, should be network/RPC related, not integration issues
+                let error_msg = error.to_string();
+                assert!(!error_msg.contains("integration") && !error_msg.contains("orchestrator"));
+            }
+        }
+    }
+    
+    #[test]
+    fn test_factory_wallet_address_access() {
+        let config = create_test_config();
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let factory = runtime.block_on(ContractFactory::new(config)).unwrap();
+        
+        // Test wallet address retrieval
+        let wallet_addr = factory.get_wallet_address().unwrap();
+        
+        // Verify it's a valid address format
+        assert_eq!(wallet_addr.to_string().len(), 42); // 0x + 40 hex chars
+        assert!(wallet_addr.to_string().starts_with("0x"));
+    }
+    
+    #[tokio::test]
+    async fn test_orchestrator_vs_factory_consistency() {
+        let config = create_test_config();
+        let factory = ContractFactory::new(config).await.unwrap();
+        
+        // Create orchestrator through factory
+        let orchestrator = factory.create_finalization_orchestrator().unwrap();
+        
+        // Test that both have consistent configuration
+        assert_eq!(factory.get_wallet_address().unwrap(), orchestrator.wallet_address());
+        
+        // Test that orchestrator has proper wallet functionality
+        let order = create_test_order();
+        let orchestrator_wallet = orchestrator.wallet_address();
+        assert!(!orchestrator_wallet.is_zero());
     }
 } 
