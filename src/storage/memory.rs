@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
+use std::path::Path;
+use tokio::fs;
 
 use crate::models::{Order, OrderStatus};
 
@@ -85,6 +87,52 @@ impl MemoryStorage {
             finalized,
             failed,
         })
+    }
+
+    /// Save all orders to a JSON file
+    pub async fn save_to_file<P: AsRef<Path>>(&self, file_path: P) -> Result<()> {
+        let orders = self.orders.read().await;
+        let orders_vec: Vec<Order> = orders.values().cloned().collect();
+        
+        // Create directory if it doesn't exist
+        if let Some(parent) = file_path.as_ref().parent() {
+            fs::create_dir_all(parent).await?;
+        }
+        
+        let json_data = serde_json::to_string_pretty(&orders_vec)?;
+        fs::write(file_path, json_data).await?;
+        
+        tracing::info!("Saved {} orders to file", orders_vec.len());
+        Ok(())
+    }
+
+    /// Load orders from a JSON file
+    pub async fn load_from_file<P: AsRef<Path>>(&self, file_path: P) -> Result<()> {
+        let file_path = file_path.as_ref();
+        
+        if !file_path.exists() {
+            tracing::info!("Persistence file does not exist, starting with empty storage");
+            return Ok(());
+        }
+        
+        let json_data = fs::read_to_string(file_path).await?;
+        let orders_vec: Vec<Order> = serde_json::from_str(&json_data)?;
+        
+        let mut orders = self.orders.write().await;
+        orders.clear();
+        
+        for order in orders_vec {
+            orders.insert(order.id, order);
+        }
+        
+        tracing::info!("Loaded {} orders from file", orders.len());
+        Ok(())
+    }
+
+    /// Get the total number of orders stored
+    pub async fn count(&self) -> usize {
+        let orders = self.orders.read().await;
+        orders.len()
     }
 }
 

@@ -9,6 +9,7 @@ pub struct AppConfig {
     pub chains: ChainConfig,
     pub contracts: ContractConfig,
     pub monitoring: MonitoringConfig,
+    pub persistence: PersistenceConfig,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -46,6 +47,12 @@ pub struct ContractConfig {
 pub struct MonitoringConfig {
     pub enabled: bool,
     pub check_interval_seconds: u64,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct PersistenceConfig {
+    pub enabled: bool,
+    pub data_file: String,
 }
 
 impl AppConfig {
@@ -119,6 +126,10 @@ impl Default for AppConfig {
             monitoring: MonitoringConfig {
                 enabled: true,
                 check_interval_seconds: 60,
+            },
+            persistence: PersistenceConfig {
+                enabled: true,
+                data_file: "data/orders.json".to_string(),
             },
         }
     }

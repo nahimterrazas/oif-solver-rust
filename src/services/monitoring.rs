@@ -97,7 +97,7 @@ impl OrderMonitoringService {
         for order in filled_orders {
             info!("Processing finalization for order: {}", order.id);
             
-            match self.finalization_service.finalize_order(order.id).await {
+                            match self.finalization_service.finalize_order(order.id).await {
                 Ok(result) => {
                     if result.success {
                         info!("Order {} finalized successfully", order.id);

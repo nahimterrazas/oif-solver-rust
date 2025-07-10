@@ -2,6 +2,7 @@ use anyhow::Result;
 use tracing::{info, error, warn};
 use alloy::providers::Provider;
 use alloy::primitives::U256;
+use std::sync::Arc;
 
 use crate::config::AppConfig;
 use crate::contracts::ContractFactory;
@@ -11,13 +12,13 @@ use crate::storage::MemoryStorage;
 #[derive(Clone)]
 pub struct FinalizationService {
     storage: MemoryStorage,
-    contract_factory: ContractFactory,
+    contract_factory: Arc<ContractFactory>,
     config: AppConfig,
 }
 
 impl FinalizationService {
     pub async fn new(storage: MemoryStorage, config: AppConfig) -> Result<Self> {
-        let contract_factory = ContractFactory::new(config.clone()).await?;
+        let contract_factory = Arc::new(ContractFactory::new(config.clone()).await?);
         
         Ok(Self {
             storage,

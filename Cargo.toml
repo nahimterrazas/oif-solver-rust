@@ -11,7 +11,16 @@ actix-web = "4.4"
 actix-cors = "0.7"
 
 # Blockchain
-alloy = { version = "0.3", features = ["full", "sol-types", "contract", "providers", "signers", "network", "rpc-types"] }
+alloy = { version = "1.0", features = [
+    "full",          
+    "sol-types",
+    "contract",
+    "providers",
+    "signers",
+    "network",
+    "rpc-types"
+] }
+
 
 # Async Runtime
 tokio = { version = "1.0", features = ["full"] }
@@ -39,5 +48,20 @@ chrono = { version = "0.4", features = ["serde"] }
 sha2 = "0.10"
 bytes = "1.5"
 
+# Ethers ABI encoding (minimal dependency to fix Alloy 1.0 bug)
+ethers-core = "2"
+ethabi = "18"
+
+# CRITICAL FIX: Add full ethers for contract interface (to match TypeScript exactly)
+ethers = { version = "2", features = ["abigen", "ws", "rustls"] }
+
+# Async traits for dyn compatibility
+async-trait = "0.1"
+
 [dev-dependencies]
 tokio-test = "0.4" 
+
+
+#[[bin]]
+#name = "verify_signatures"
+#path = "src/verify_signatures.rs"

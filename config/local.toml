@@ -23,3 +23,7 @@ coin_filler = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
 [monitoring]
 enabled = true
 check_interval_seconds = 60
+
+[persistence]
+enabled = true
+data_file = "data/orders.json"
