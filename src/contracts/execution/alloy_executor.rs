@@ -1,4 +1,4 @@
-use crate::contracts::execution::traits::{ExecutionEngine, GasParams};
+use crate::contracts::execution::traits::{ExecutionEngine, GasParams, ChainType};
 use crate::config::AppConfig;
 use alloy::{
     providers::{Provider, ProviderBuilder},
@@ -111,14 +111,18 @@ impl AlloyExecutor {
 
 #[async_trait]
 impl ExecutionEngine for AlloyExecutor {
-    async fn send_transaction(&self, call_data: Vec<u8>, to: Address, gas: GasParams) -> Result<String> {
+    async fn send_transaction(&self, chain: ChainType, call_data: Vec<u8>, to: Address, gas: GasParams) -> Result<String> {
         info!("🚀 AlloyExecutor: Sending transaction to {}", to);
+        info!("  Chain: {:?}", chain);
         info!("  Call data: {} bytes", call_data.len());
         info!("  Gas limit: {}", gas.gas_limit);
         info!("  Gas price: {}", gas.gas_price);
         
-        // Create provider (defaulting to origin chain for now)
-        let provider = self.create_origin_provider()?;
+        // Create provider based on specified chain
+        let provider = match chain {
+            ChainType::Origin => self.create_origin_provider()?,
+            ChainType::Destination => self.create_destination_provider()?,
+        };
         
         // Build transaction request
         let tx_request = self.build_transaction_request(call_data.clone(), to, gas);
@@ -163,14 +167,18 @@ impl ExecutionEngine for AlloyExecutor {
         Ok(tx_hash)
     }
     
-    async fn static_call(&self, call_data: Vec<u8>, to: Address, from: Address) -> Result<Vec<u8>> {
+    async fn static_call(&self, chain: ChainType, call_data: Vec<u8>, to: Address, from: Address) -> Result<Vec<u8>> {
         info!("🔍 AlloyExecutor: Performing static call");
+        info!("  Chain: {:?}", chain);
         info!("  To: {}", to);
         info!("  From: {}", from);
         info!("  Call data: {} bytes", call_data.len());
         
-        // Create provider (defaulting to origin chain)
-        let provider = self.create_origin_provider()?;
+        // Create provider based on specified chain
+        let provider = match chain {
+            ChainType::Origin => self.create_origin_provider()?,
+            ChainType::Destination => self.create_destination_provider()?,
+        };
         
         // Build call request
         let call_request = TransactionRequest::default()
@@ -193,14 +201,18 @@ impl ExecutionEngine for AlloyExecutor {
         Ok(result.to_vec())
     }
     
-    async fn estimate_gas(&self, call_data: Vec<u8>, to: Address, from: Address) -> Result<u64> {
+    async fn estimate_gas(&self, chain: ChainType, call_data: Vec<u8>, to: Address, from: Address) -> Result<u64> {
         info!("⛽ AlloyExecutor: Estimating gas");
+        info!("  Chain: {:?}", chain);
         info!("  To: {}", to);
         info!("  From: {}", from);
         info!("  Call data: {} bytes", call_data.len());
         
-        // Create provider (defaulting to origin chain)
-        let provider = self.create_origin_provider()?;
+        // Create provider based on specified chain
+        let provider = match chain {
+            ChainType::Origin => self.create_origin_provider()?,
+            ChainType::Destination => self.create_destination_provider()?,
+        };
         
         // Build estimation request
         let estimation_request = TransactionRequest::default()
@@ -227,6 +239,10 @@ impl ExecutionEngine for AlloyExecutor {
     
     fn wallet_address(&self) -> Address {
         self.wallet.default_signer().address()
+    }
+    
+    fn description(&self) -> &str {
+        "AlloyExecutor: Uses Alloy providers for blockchain transaction execution"
     }
 }
 

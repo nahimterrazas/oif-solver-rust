@@ -5,7 +5,6 @@ pub mod models;
 pub mod server;
 pub mod services;
 pub mod storage;
-pub mod eip712;
 
 use anyhow::Result;
 use tracing::{info, error, warn};

@@ -1,14 +1,10 @@
 use alloy::{
     primitives::{Address, U256, FixedBytes, Bytes},
     providers::{ProviderBuilder, Provider},
-    transports::http::{Client, Http},
-    rpc::types::{TransactionRequest, TransactionInput},
     sol,
-    sol_types::{SolValue, SolCall, SolInterface},
     signers::local::PrivateKeySigner,
-    network::{EthereumWallet, Ethereum},
+    network::{EthereumWallet},
     primitives::keccak256,
-    dyn_abi::{DynSolValue, DynSolType},
 };
 use anyhow::Result;
 use std::str::FromStr;
@@ -66,11 +62,11 @@ abigen!(
 );
 
 use crate::config::AppConfig;
-use crate::contracts::operations::FinalizationOrchestrator;
+use crate::contracts::operations::{FinalizationOrchestrator, FillOrchestrator};
 use crate::contracts::abi::AbiRegistry;
 use std::sync::Arc;
 
-// Temporary contract interfaces - will be replaced with actual contracts
+// Contract interfaces using Alloy sol! macro - shared across modules  
 sol! {
     // Add Input struct for EIP-712 hashing
     struct Input {
@@ -199,119 +195,22 @@ impl ContractFactory {
         amount: U256,
         recipient: Address,
     ) -> Result<String> {
-        info!("Executing real fill order: order_id={}, fill_deadline={}, remote_oracle={:?}, token={:?}, amount={}, recipient={:?}", order_id, fill_deadline, remote_oracle, token, amount, recipient);
-
-        // Get wallet and create signing provider
-        let wallet = self.get_wallet()?.clone();
+        info!("🚀 MODULAR FILL: Using FillOrchestrator architecture");
         
-        info!("Using wallet address: {:?}", wallet.default_signer().address());
+        // Create FillOrchestrator with modular components
+        let orchestrator = self.create_fill_orchestrator()?;
         
-        // Create signing provider for destination chain
-        let provider = ProviderBuilder::new()
-            .wallet(wallet.clone())
-            .on_http(self.config.chains.destination.rpc_url.parse()?);
-
-        // Prepare contract call parameters - use the original fillDeadline from the order
-        let order_id_bytes32 = self.string_to_order_id(order_id); // Use the actual order ID
-        let proposed_solver = self.address_to_bytes32(wallet.default_signer().address());
+        // Execute fill using the new modular approach
+        let tx_hash = orchestrator.execute_fill(
+            order_id,
+            fill_deadline,
+            remote_oracle,
+            token,
+            amount,
+            recipient,
+        ).await?;
         
-        // Get CoinFiller contract address from config
-        let coin_filler_address: Address = self.config.contracts.coin_filler.parse()
-            .map_err(|e| anyhow::anyhow!("Invalid CoinFiller address in config: {}", e))?;
-
-        // Create MandateOutput struct for the contract call
-        let mandate_output = MandateOutput {
-            remoteOracle: self.address_to_bytes32(remote_oracle), // Use address directly, not bytes32
-            remoteFiller: self.address_to_bytes32(self.config.contracts.coin_filler.parse()?),
-            chainId: U256::from(self.config.chains.destination.chain_id),
-            token: self.address_to_bytes32(token),
-            amount: amount,
-            recipient: self.address_to_bytes32(recipient),
-            remoteCall: Bytes::default(),
-            fulfillmentContext: Bytes::default(),
-        };
-
-        info!("MandateOutput structure details:");
-        info!("  remoteOracle: 0x{}", hex::encode(mandate_output.remoteOracle));
-        info!("  remoteFiller: 0x{}", hex::encode(mandate_output.remoteFiller));
-        info!("  chainId: {}", mandate_output.chainId);
-        info!("  token: 0x{}", hex::encode(mandate_output.token));
-        info!("  amount: {}", mandate_output.amount);
-        info!("  recipient: 0x{}", hex::encode(mandate_output.recipient));
-        info!("  remoteCall: 0x{}", hex::encode(&mandate_output.remoteCall));
-        info!("  fulfillmentContext: 0x{}", hex::encode(&mandate_output.fulfillmentContext));
-
-        info!("Encoding CoinFiller.fill() call with parameters:");
-        info!("  Fill deadline: {}", fill_deadline);
-        info!("  Order ID: {:?}", order_id_bytes32);
-        info!("  Proposed solver: {:?}", proposed_solver);
-        info!("  Contract address: {:?}", coin_filler_address);
-
-        // Use the sol! macro to encode the function call
-        let call_data = CoinFiller::fillCall {
-            fillDeadline: u32::MAX, // Use uint32::MAX like TypeScript, not the actual order deadline
-            orderId: order_id_bytes32,
-            output: mandate_output,
-            proposedSolver: proposed_solver,
-        }.abi_encode();
-
-        info!("Raw transaction data:");
-        info!("  Call data length: {} bytes", call_data.len());
-        info!("  Call data (hex): 0x{}", hex::encode(&call_data));
-        info!("  Function selector: 0x{}", hex::encode(&call_data[..4]));
-
-        // Create transaction request with explicit gas parameters
-        let mut tx_request = TransactionRequest::default()
-            .to(coin_filler_address)
-            .input(TransactionInput::from(call_data.clone()));
-        
-        // Set gas parameters explicitly
-        tx_request.gas = Some(360000u64.into());  // Match TypeScript gasLimit
-        tx_request.gas_price = Some(50_000_000_000u64.into()); // 50 gwei
-
-        info!("Transaction request details:");
-        info!("  To: {:?}", tx_request.to);
-        info!("  From: {:?}", tx_request.from);
-        info!("  Value: {:?}", tx_request.value);
-        info!("  Gas limit: {:?}", tx_request.gas);
-        info!("  Gas price: {:?}", tx_request.gas_price);
-        info!("  Input data: 0x{}", hex::encode(&call_data));
-
-        info!("Sending CoinFiller.fill() transaction...");
-
-        // Send transaction and get pending transaction
-        let pending_tx = provider.send_transaction(tx_request).await
-            .map_err(|e| {
-                error!("Transaction send failed with detailed error:");
-                error!("  Error: {}", e);
-                error!("  Contract address: {:?}", coin_filler_address);
-                error!("  Wallet address: {:?}", wallet.default_signer().address());
-                error!("  Call data: 0x{}", hex::encode(&call_data));
-                anyhow::anyhow!("Failed to send fill transaction: {}", e)
-            })?;
-
-        // Get transaction hash
-        let tx_hash = pending_tx.tx_hash().to_string();
-
-        info!("✅ CoinFiller.fill() transaction sent successfully: {}", tx_hash);
-        info!("   Waiting for confirmation...");
-
-        // Optionally wait for receipt to confirm transaction
-        let receipt = pending_tx.get_receipt().await?;
-        
-        // Check if transaction was successful
-        if !receipt.status() {
-            error!("❌ CoinFiller.fill() transaction FAILED (reverted)");
-            error!("   Transaction hash: {}", tx_hash);
-            error!("   Gas used: {}", receipt.gas_used);
-            error!("   Block: {}", receipt.block_number.unwrap_or_default());
-            return Err(anyhow::anyhow!("Fill transaction reverted: {}", tx_hash));
-        }
-        
-        info!("✅ Transaction confirmed successfully");
-        info!("   Gas used: {}", receipt.gas_used);
-        info!("   Block: {}", receipt.block_number.unwrap_or_default());
-        
+        info!("✅ Modular fill completed successfully: {}", tx_hash);
         Ok(tx_hash)
     }
 
@@ -350,6 +249,25 @@ impl ContractFactory {
         Ok(orchestrator)
     }
 
+    /// Create FillOrchestrator with the current factory configuration
+    fn create_fill_orchestrator(&self) -> Result<FillOrchestrator> {
+        info!("🏗️ Creating FillOrchestrator from ContractFactory");
+        
+        // Create ABI provider
+        let abi_provider = Arc::new(AbiRegistry::new());
+        
+        // Create config Arc from current config
+        let config = Arc::new(self.config.clone());
+        
+        // Create FillOrchestrator
+        let orchestrator = FillOrchestrator::new(abi_provider, config)?;
+        
+        info!("✅ FillOrchestrator created with factory configuration");
+        info!("  Wallet address: {}", orchestrator.wallet_address());
+        
+        Ok(orchestrator)
+    }
+
     /// Estimate gas for finalization using FinalizationOrchestrator
     pub async fn estimate_finalization_gas(&self, order: &crate::models::Order) -> Result<u64> {
         info!("⛽ Estimating finalization gas using FinalizationOrchestrator");
@@ -361,406 +279,36 @@ impl ContractFactory {
         Ok(gas_estimate)
     }
 
+    /// Estimate gas for fill using FillOrchestrator
+    pub async fn estimate_fill_gas(
+        &self,
+        order_id: &str,
+        fill_deadline: u32,
+        remote_oracle: Address,
+        token: Address,
+        amount: U256,
+        recipient: Address,
+    ) -> Result<u64> {
+        info!("⛽ Estimating fill gas using FillOrchestrator");
+        
+        let orchestrator = self.create_fill_orchestrator()?;
+        let gas_estimate = orchestrator.estimate_fill_gas(
+            order_id,
+            fill_deadline,
+            remote_oracle,
+            token,
+            amount,
+            recipient,
+        ).await?;
+        
+        info!("✅ Fill gas estimation completed: {} gas", gas_estimate);
+        Ok(gas_estimate)
+    }
+
     /// Get wallet address from the factory
     pub fn get_wallet_address(&self) -> Result<Address> {
         Ok(self.get_wallet()?.default_signer().address())
     }
-
-    // Legacy implementation - will be removed once new architecture is complete
-    async fn legacy_finalize_order(
-        &self,
-        order: &crate::models::Order,
-    ) -> Result<String> {
-        info!("Executing real SettlerCompact.finalise(): order_id={}", order.id);
-        
-        // Get wallet and provider for transaction
-        let wallet = self.get_wallet()?.clone();
-        let provider = self.get_origin_provider()?;
-
-        info!("Using wallet address: {:?}", wallet.default_signer().address());
-        
-        // 🔍 CHAIN VERIFICATION: Ensure we're executing on the correct origin chain
-        info!("🔍 CHAIN VERIFICATION - Expected Origin Chain:");
-        info!("   Chain ID: {}", self.config.chains.origin.chain_id);
-        info!("   RPC URL: {}", self.config.chains.origin.rpc_url);
-        info!("   SettlerCompact: {}", self.config.contracts.settler_compact);
-        info!("   TheCompact: {}", self.config.contracts.the_compact);
-        
-        // Create signing provider for origin chain (where SettlerCompact is deployed)
-        let provider = ProviderBuilder::new()
-            .wallet(wallet.clone())
-            .on_http(self.config.chains.origin.rpc_url.parse()?);
-
-        // 🔍 RUNTIME CHAIN VERIFICATION: Verify we're actually connected to the correct chain
-        let actual_chain_id = provider.get_chain_id().await?;
-        let expected_chain_id = self.config.chains.origin.chain_id;
-        
-        info!("🔍 RUNTIME CHAIN VERIFICATION:");
-        info!("   Expected Chain ID: {}", expected_chain_id);
-        info!("   Actual Chain ID: {}", actual_chain_id);
-        
-        if actual_chain_id != expected_chain_id {
-            return Err(anyhow::anyhow!(
-                "❌ CHAIN MISMATCH: Expected chain ID {} but connected to chain ID {}. Check your RPC configuration!",
-                expected_chain_id, actual_chain_id
-            ));
-        }
-        
-        info!("✅ CHAIN VERIFICATION PASSED: Connected to correct origin chain ({})", actual_chain_id);
-        
-        // Get SettlerCompact contract address from config
-        let settler_compact_address: Address = self.config.contracts.settler_compact.parse()
-            .map_err(|e| anyhow::anyhow!("Invalid SettlerCompact address in config: {}", e))?;
-
-        let standard_order = &order.standard_order;
-
-        // Convert inputs to Input[] format WITH PROPER ERROR HANDLING
-        let inputs: Result<Vec<Input>, anyhow::Error> = standard_order.inputs.iter()
-            .enumerate()
-            .map(|(i, (token_id, amount))| {
-                // Careful BigInt conversion like TypeScript
-                let token_id_u256 = token_id.parse::<U256>()
-                    .map_err(|e| anyhow::anyhow!("Failed to parse token_id at input[{}]: '{}' - {}", i, token_id, e))?;
-                let amount_u256 = amount.parse::<U256>()
-                    .map_err(|e| anyhow::anyhow!("Failed to parse amount at input[{}]: '{}' - {}", i, amount, e))?;
-                
-                info!("🔢 Input[{}]: tokenId={} ({}), amount={} ({})", 
-                      i, token_id_u256, token_id, amount_u256, amount);
-                
-                Ok(Input { tokenId: token_id_u256, amount: amount_u256 })
-            })
-            .collect();
-        
-        let inputs = inputs?;
-
-        // Convert outputs to MandateOutput[] WITH PROPER ERROR HANDLING
-        let outputs: Result<Vec<MandateOutput>, anyhow::Error> = standard_order.outputs.iter()
-            .enumerate()
-            .map(|(i, output)| {
-                let amount_u256 = output.amount.parse::<U256>()
-                    .map_err(|e| anyhow::anyhow!("Failed to parse output amount at output[{}]: '{}' - {}", i, output.amount, e))?;
-                
-                info!("🔢 Output[{}]: amount={} ({})", i, amount_u256, output.amount);
-                
-                // Handle remoteCall and fulfillmentContext - EXACTLY match TypeScript '0x' encoding
-                let remote_call = match &output.remote_call {
-                    Some(s) if !s.is_empty() && s != "null" => {
-                        Bytes::from(hex::decode(s.strip_prefix("0x").unwrap_or(s)).unwrap_or_default())
-                    }
-                    _ => {
-                        // TypeScript: remoteCall: output.remoteCall || '0x'
-                        // Force explicit empty bytes encoding to match TypeScript ABI
-                        Bytes::from(vec![])
-                    }
-                };
-                
-                let fulfillment_context = match &output.fulfillment_context {
-                    Some(s) if !s.is_empty() && s != "null" => {
-                        Bytes::from(hex::decode(s.strip_prefix("0x").unwrap_or(s)).unwrap_or_default())
-                    }
-                    _ => {
-                        // TypeScript: fulfillmentContext: output.fulfillmentContext || '0x'  
-                        // This encodes as empty bytes but with proper ABI encoding
-                        Bytes::new()
-                    }
-                };
-                
-                info!("🔍 Output[{}] field handling:", i);
-                info!("  remoteCall: {} bytes", remote_call.len());
-                info!("  fulfillmentContext: {} bytes", fulfillment_context.len());
-                
-                Ok(MandateOutput {
-                    remoteOracle: self.address_to_bytes32(output.remote_oracle),
-                    remoteFiller: self.address_to_bytes32(output.remote_filler),
-                    chainId: U256::from(output.chain_id),
-                    token: self.address_to_bytes32(output.token),
-                    amount: amount_u256,
-                    recipient: self.address_to_bytes32(output.recipient),
-                    remoteCall: remote_call,
-                    fulfillmentContext: fulfillment_context,
-                })
-            })
-            .collect();
-        
-        let outputs = outputs?;
-
-        // Create contract order struct with proper BigInt handling
-        let contract_order = StandardOrder {
-            user: standard_order.user,
-            nonce: U256::from(standard_order.nonce),
-            originChainId: U256::from(standard_order.origin_chain_id),
-            expires: U256::from(standard_order.expires),
-            fillDeadline: U256::from(standard_order.fill_deadline),
-            localOracle: standard_order.local_oracle,
-            inputs,
-            outputs,  // Use the already processed outputs, not re-mapping
-        };
-
-        // Validate signature is not empty
-        if order.signature.trim().is_empty() || order.signature == "0x" {
-            return Err(anyhow::anyhow!("Order has empty signature"));
-        }
-
-        // Encode signatures: [sponsorSig, allocatorSig] - ROBUST signature validation
-        let sponsor_sig = {
-            let sig_str = order.signature.strip_prefix("0x").unwrap_or(&order.signature);
-            if sig_str.is_empty() {
-                return Err(anyhow::anyhow!("Empty signature"));
-            }
-            if sig_str.len() % 2 != 0 {
-                return Err(anyhow::anyhow!("Odd-length hex signature: '{}'", order.signature));
-            }
-            // Validate signature is exactly 65 bytes (130 hex chars) for ECDSA
-            if sig_str.len() != 130 {
-                return Err(anyhow::anyhow!("Invalid signature length: {} chars, expected 130 for ECDSA", sig_str.len()));
-            }
-            Bytes::from(hex::decode(sig_str)
-                .map_err(|e| anyhow::anyhow!("Invalid hex in signature '{}': {}", order.signature, e))?)
-        };
-        let allocator_sig = Bytes::new(); // Empty for AlwaysOKAllocator
-        
-        info!("✅ Signature validation passed: {} bytes", sponsor_sig.len());
-        
-        // Don't pre-encode signatures with Alloy - let ethabi handle it to avoid the bug
-
-        // Create timestamps array as u32 for uint32[] (not uint256[])
-        let current_timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as u32;
-        let timestamps = vec![current_timestamp];
-        
-        info!("Using timestamp: {} (u32 for uint32[] ABI)", current_timestamp);
-
-        // CRITICAL FIX: Use solver wallet address instead of remoteFiller address  
-        // The TypeScript version uses solver wallet for both solvers[0] and destination
-        let solver_wallet_address = wallet.default_signer().address();
-        let solver_wallet_bytes32 = self.address_to_bytes32(solver_wallet_address);
-        let solvers = vec![solver_wallet_bytes32];
-        let destination = solver_wallet_bytes32;
-        
-        // Keep remote_filler_address for reference but don't use for contract params
-        let remote_filler_address = if let Some(first_output) = standard_order.outputs.first() {
-            first_output.remote_filler
-        } else {
-            return Err(anyhow::anyhow!("Order has no outputs to determine remoteFiller"));
-        };
-        
-        info!("🔧 CORRECTED: Using solver wallet address to match TypeScript:");
-        info!("  Solver wallet address: {:?}", solver_wallet_address);
-        info!("  RemoteFiller address: {:?}", remote_filler_address);
-        info!("  Contract expects solver wallet = solvers[0] = destination (matching TypeScript)");
-
-        // 🔍 DEBUGGING: Check how many outputs we actually have
-        info!("🔍 CRITICAL DEBUG: contract_order.outputs.len() = {}", contract_order.outputs.len());
-        info!("🔍 CRITICAL DEBUG: standard_order.outputs.len() = {}", standard_order.outputs.len());
-        for (i, o) in contract_order.outputs.iter().enumerate() {
-            info!("🔍 CRITICAL DEBUG: out[{i}].amount = {}, chainId = {}", o.amount, o.chainId);
-        }
-        
-        // Also dump the raw JSON structure
-        info!("🔍 RAW JSON ORDER: {}", serde_json::to_string_pretty(&order.standard_order).unwrap_or_default());
-        // TypeScript uses EMPTY calls - match exactly!
-        // Ensure we use the exact same encoding as TypeScript '0x'
-        let calls = Bytes::from(hex::decode("").unwrap_or_default());
-        info!("🔍 Using empty calls parameter (matches TypeScript '0x' implementation)");
-
-        info!("SettlerCompact.finalise() parameters:");
-        info!("  User: {:?}", contract_order.user);
-        info!("  Nonce: {}", contract_order.nonce);
-        info!("  Origin Chain ID: {}", contract_order.originChainId);
-        info!("  Expires: {}", contract_order.expires);
-        info!("  Fill Deadline: {}", contract_order.fillDeadline);
-        info!("  Local Oracle: 0x{}", hex::encode(contract_order.localOracle));
-        info!("  Inputs count: {}", contract_order.inputs.len());
-        for (i, input) in contract_order.inputs.iter().enumerate() {
-            info!("    Input {}: tokenId={}, amount={}", i, input.tokenId, input.amount);
-        }
-        info!("  Outputs count: {}", contract_order.outputs.len());
-        for (i, output) in contract_order.outputs.iter().enumerate() {
-            info!("    Output {}: remoteOracle=0x{}, remoteFiller=0x{}, chainId={}, token=0x{}, amount={}, recipient=0x{}", 
-                  i, hex::encode(output.remoteOracle), hex::encode(output.remoteFiller), 
-                  output.chainId, hex::encode(output.token), output.amount, hex::encode(output.recipient));
-        }
-        info!("  Sponsor signature: 0x{}", hex::encode(&sponsor_sig));
-        info!("  Allocator signature: 0x{}", hex::encode(&allocator_sig));
-        info!("  Timestamps: {:?}", timestamps);
-        info!("  Solver: 0x{}", hex::encode(solver_wallet_bytes32));
-        info!("  Destination: 0x{}", hex::encode(destination));
-        info!("  Contract address: {:?}", settler_compact_address);
-
-        // CRITICAL DEBUGGING: The sponsor signature is NOT for StandardOrder verification
-        // It's for BatchCompact verification inside TheCompact.batchClaim()
-        // The signature verification happens automatically when we call finalise()
-        // So we don't need to manually verify the signature here.
-        info!("✅ Signature will be verified by TheCompact.batchClaim() during finalise() call");
-        
-        // ⚠️ REMOVED: Manual EIP-712 signature verification - not needed and was causing confusion
-        // The actual verification happens in the smart contract when we call finalise()
-
-        // Store values for debug logging before move
-        let debug_sponsor_sig_len = sponsor_sig.len();
-        let debug_allocator_sig_len = allocator_sig.len(); // Should be 0 (empty) to match TypeScript
-        let debug_timestamps_len = timestamps.len();
-        let debug_solvers_len = solvers.len();
-        let debug_calls_len = calls.len();
-
-        // CRITICAL FIX: Use EXACT same selector as working TypeScript (0xdd1ff485)
-        info!("🚀 USING TYPESCRIPT SELECTOR: 0xdd1ff485 (exact match with working TypeScript)");
-        
-        let call_data = self.encode_finalize_call_with_typescript_selector(
-            &contract_order,
-            &sponsor_sig,
-            &allocator_sig,
-            &timestamps,
-            &solvers,
-            &destination,
-            &calls,
-        )?;
-
-        info!("Raw finalization transaction data:");
-        info!("  Call data length: {} bytes", call_data.len());
-        info!("  Call data (hex): 0x{}", hex::encode(&call_data));
-        info!("  Function selector: 0x{}", hex::encode(&call_data[..4]));
-        
-        // DETAILED BREAKDOWN FOR DEBUGGING vs TypeScript (1349 bytes)
-        info!("🔍 DEBUGGING: Rust call data breakdown:");
-        info!("  Expected TypeScript call data size: 1349 bytes");
-        info!("  Actual Rust call data size: {} bytes", call_data.len());
-        info!("  Size difference: {} bytes", 1349_i32 - call_data.len() as i32);
-        
-        // Break down the call data structure to debug encoding differences
-        let breakdown_info = format!(
-            "
-🔍 Call data structure analysis:
-  - Function selector (4 bytes): 0x{}
-  - Order struct size estimate: ~{} bytes  
-  - Sponsor sig size: {} bytes
-  - Allocator sig size: {} bytes
-  - Timestamps array size: ~{} bytes
-  - Solvers array size: ~{} bytes
-  - Destination (32 bytes): 32 bytes
-  - Calls (empty): ~{} bytes
-  - Total overhead (offsets/lengths): ~{} bytes",
-            hex::encode(&call_data[..4]),
-            call_data.len() - 200, // rough estimate
-            debug_sponsor_sig_len,
-            debug_allocator_sig_len,
-            debug_timestamps_len * 4 + 32, // u32 array
-            debug_solvers_len * 32 + 32,    // bytes32 array  
-            debug_calls_len + 32,           // bytes
-            200                         // ABI encoding overhead
-        );
-        info!("{}", breakdown_info);
-
-        // Create transaction request with explicit from address
-        let mut tx_request = TransactionRequest::default()
-            .to(settler_compact_address)
-            .from(wallet.default_signer().address())
-            .input(TransactionInput::from(call_data.clone()));
-        
-        // Use EXACT same gas parameters as working TypeScript version
-        tx_request.gas = Some(650000u64.into());  // Match TypeScript gas limit
-        tx_request.gas_price = Some(1178761408u64.into()); // Match TypeScript gas price
-
-        info!("Transaction request details:");
-        info!("  To: {:?}", tx_request.to);
-        info!("  From: {:?}", tx_request.from);
-        info!("  Value: {:?}", tx_request.value);
-        info!("  Gas limit: {:?}", tx_request.gas);
-        info!("  Gas price: {:?}", tx_request.gas_price);
-        info!("  Input data: 0x{}", hex::encode(&call_data));
-
-        info!("Sending SettlerCompact.finalise() transaction...");
-
-        // First, try a static call to get detailed revert reason if it would fail
-        info!("🔍 Testing finalization call statically first...");
-        
-        let provider_chain = self.config.chains.origin.rpc_url.parse()?;
-        info!("🔍 Provider chain: {:?}", provider_chain);
-        // Create a provider without signer for static call
-        let static_provider = ProviderBuilder::new()
-            .on_http(provider_chain);
-            
-        // Prepare static call transaction
-        let static_tx_request = TransactionRequest::default()
-            .to(settler_compact_address)
-            .from(wallet.default_signer().address())
-            .input(TransactionInput::from(call_data.clone()));
-            
-        match static_provider.call(static_tx_request).await {
-            Ok(result) => {
-                info!("✅ Static call succeeded, proceeding with actual transaction...");
-                info!("   Static call result: 0x{}", hex::encode(&result));
-            }
-            Err(static_error) => {
-                error!("❌ Static call failed, this will help debug the issue:");
-                error!("📋 Revert reason: {:?}", static_error);
-                
-                // Try to decode common error signatures
-                if let Some(error_data) = static_error.to_string().split("data: ").nth(1) {
-                    if let Some(hex_data) = error_data.split('"').next() {
-                        info!("📋 Raw error data: {}", hex_data);
-                        
-                        // Try to decode as string if it looks like revert reason
-                        if hex_data.len() > 8 && hex_data.starts_with("0x08c379a0") {
-                            // Standard Error(string) signature
-                            if let Ok(decoded_bytes) = hex::decode(&hex_data[10..]) {
-                                if let Ok(error_msg) = String::from_utf8(decoded_bytes) {
-                                    error!("📋 Decoded error message: {}", error_msg);
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Still proceed with the transaction to get more detailed logs
-                info!("🚀 Proceeding with actual transaction despite static call failure...");
-            }
-        }
-
-        // Send transaction and get pending transaction
-        let pending_tx = provider.send_transaction(tx_request).await
-            .map_err(|e| {
-                error!("Finalize transaction send failed with detailed error:");
-                error!("  Error: {}", e);
-                error!("  Contract address: {:?}", settler_compact_address);
-                error!("  Wallet address: {:?}", wallet.default_signer().address());
-                error!("  Call data: 0x{}", hex::encode(&call_data));
-                anyhow::anyhow!("Failed to send finalize transaction: {}", e)
-            })?;
-
-        // Get transaction hash
-        let tx_hash = pending_tx.tx_hash().to_string();
-
-        info!("✅ SettlerCompact.finalise() transaction sent successfully: {}", tx_hash);
-        info!("   Waiting for confirmation...");
-
-        // Wait for receipt and check transaction status
-        let receipt = pending_tx.get_receipt().await?;
-        
-        // Check if transaction was successful
-        if !receipt.status() {
-            error!("❌ SettlerCompact.finalise() transaction FAILED (reverted)");
-            error!("   Transaction hash: {}", tx_hash);
-            error!("   Gas used: {}", receipt.gas_used);
-            error!("   Block: {}", receipt.block_number.unwrap_or_default());
-            error!("   🔍 POSSIBLE CAUSES:");
-            error!("   • Order not properly filled/proven on destination chain");
-            error!("   • Invalid signature or timestamp");
-            error!("   • Nonce mismatch or order already finalized");
-            error!("   • Contract state validation failed");
-            return Err(anyhow::anyhow!("Finalization transaction reverted: {}", tx_hash));
-        }
-        
-        info!("✅ Transaction confirmed successfully");
-        info!("   Gas used: {}", receipt.gas_used);
-        info!("   Block: {}", receipt.block_number.unwrap_or_default());
-        
-        Ok(tx_hash)
-    }
-
-    // Helper methods for real blockchain execution (to be implemented)
     
     pub fn get_origin_provider(&self) -> Result<&(dyn Provider + Send + Sync)> {
         self.origin_provider.as_ref()
@@ -832,7 +380,6 @@ impl ContractFactory {
         calls: &Bytes,
     ) -> Result<Vec<u8>> {
         use std::process::Command;
-        use alloy::primitives::keccak256;
 
         info!("🔧 Using Foundry cast abi-encode to fix nested tuple arrays bug");
         
@@ -1230,4 +777,4 @@ mod tests {
         let orchestrator_wallet = orchestrator.wallet_address();
         assert!(!orchestrator_wallet.is_zero());
     }
-} 
+}

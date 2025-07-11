@@ -44,6 +44,17 @@ pub struct FillParams {
     pub proposed_solver: FixedBytes<32>,
 }
 
+/// High-level fill request parameters
+#[derive(Debug, Clone)]
+pub struct FillRequest {
+    pub order_id: String,
+    pub fill_deadline: u32,
+    pub remote_oracle: Address,
+    pub token: Address,
+    pub amount: U256,
+    pub recipient: Address,
+}
+
 /// Abstract trait for call data encoding
 /// 
 /// This trait provides a clean interface for different encoding implementations:
@@ -62,9 +73,35 @@ pub trait CallDataEncoder: Send + Sync {
     /// Get a human-readable description of this encoder
     fn description(&self) -> &str;
     
-    /// Encode CoinFiller.fill() call data (optional - for cross-chain fills)
-    fn encode_fill_call(&self, params: &FillParams) -> Result<Vec<u8>> {
+    /// Encode CoinFiller.fill() call data from high-level request
+    /// 
+    /// This is the main interface for fill operations - implementations handle
+    /// the conversion from FillRequest to their specific parameter format internally.
+    fn encode_fill_call(&self, request: &FillRequest) -> Result<Vec<u8>> {
         // Default implementation for encoders that don't support fill
         Err(anyhow::anyhow!("Fill encoding not supported by this encoder"))
+    }
+    
+    /// Get the function selector for the fill function
+    fn get_fill_selector(&self) -> [u8; 4] {
+        // Default fill selector - can be overridden by implementations
+        [0x00, 0x00, 0x00, 0x00]
+    }
+    
+    /// Encode complete fill call with configuration parameters
+    /// 
+    /// This method takes all the necessary context to create a complete
+    /// fill call without requiring post-processing. This is used by
+    /// FillOrchestrator to ensure all fields are correctly populated.
+    fn encode_complete_fill_call(
+        &self,
+        request: &FillRequest,
+        coin_filler_address: Address,
+        destination_chain_id: u64,
+        solver_address: Address,
+    ) -> Result<Vec<u8>> {
+        // Default implementation: use the basic method and hope the implementor
+        // handles the configuration correctly
+        self.encode_fill_call(request)
     }
 } 

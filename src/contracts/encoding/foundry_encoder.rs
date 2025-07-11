@@ -1,4 +1,4 @@
-use crate::contracts::encoding::{CallDataEncoder, traits::{FinaliseParams, FillParams, StandardOrderParams, MandateOutputParams}};
+use crate::contracts::encoding::{CallDataEncoder, traits::{FinaliseParams, FillParams, FillRequest, StandardOrderParams, MandateOutputParams}};
 use crate::contracts::abi::AbiProvider;
 use alloy::primitives::{Address, FixedBytes, Bytes, U256};
 use anyhow::Result;
@@ -69,6 +69,48 @@ impl CallDataEncoder for FoundryEncoder {
     
     fn description(&self) -> &str {
         "FoundryEncoder: Uses Foundry cast for ABI encoding with TypeScript compatibility"
+    }
+    
+    /// High-level interface: Convert FillRequest to call data directly
+    fn encode_fill_call(&self, request: &FillRequest) -> Result<Vec<u8>> {
+        info!("🔄 Converting FillRequest to FillParams for Foundry encoding");
+        
+        // Convert FillRequest to FillParams internally
+        let params = self.request_to_fill_params(request)?;
+        
+        // Use the existing detailed implementation
+        self.encode_fill_call_internal(&params)
+    }
+    
+    fn get_fill_selector(&self) -> [u8; 4] {
+        // Get the correct selector using the ABI registry
+        let function_sig = self.abi_provider
+            .get_function_signature("CoinFiller", "fill")
+            .unwrap_or_else(|_| "fill(uint32,bytes32,(bytes32,bytes32,uint256,bytes32,uint256,bytes32,bytes,bytes),bytes32)".to_string());
+        
+        // Use cast to get selector
+        let output = Command::new("cast")
+            .arg("sig")
+            .arg(&function_sig)
+            .output()
+            .expect("Failed to get fill function selector");
+            
+        let selector_hex = String::from_utf8(output.stdout).unwrap().trim().to_string();
+        let selector_hex = selector_hex.strip_prefix("0x").unwrap_or(&selector_hex);
+        let selector_bytes = hex::decode(selector_hex).expect("Failed to decode fill selector");
+        
+        [selector_bytes[0], selector_bytes[1], selector_bytes[2], selector_bytes[3]]
+    }
+    
+    fn encode_complete_fill_call(
+        &self,
+        _request: &FillRequest,
+        _coin_filler_address: Address,
+        _destination_chain_id: u64,
+        _solver_address: Address,
+    ) -> Result<Vec<u8>> {
+        // FoundryEncoder doesn't support fill operations yet
+        Err(anyhow::anyhow!("FoundryEncoder does not support fill operations. Use AlloyEncoder for fill calls."))
     }
     
 }
@@ -325,8 +367,161 @@ impl FoundryEncoder {
         Ok(calldata)
     }
     
+    /// Convert high-level FillRequest to FillParams
+    fn request_to_fill_params(&self, request: &FillRequest) -> Result<FillParams> {
+        info!("🔄 Converting FillRequest to FillParams");
+        info!("  Order ID: {}", request.order_id);
+        info!("  Remote Oracle: {:?}", request.remote_oracle);
+        info!("  Token: {:?}", request.token);
+        info!("  Amount: {}", request.amount);
+        info!("  Recipient: {:?}", request.recipient);
+        
+        // Convert order_id string to bytes32
+        let order_id_bytes32 = self.string_to_order_id(&request.order_id);
+        
+        // Create MandateOutput - using config would be ideal but not available here
+        // We'll keep it simple and handle chain_id externally
+        let mandate_output = MandateOutputParams {
+            remote_oracle: self.address_to_bytes32(request.remote_oracle),
+            remote_filler: FixedBytes::ZERO, // Will be set by the orchestrator
+            chain_id: U256::ZERO, // Will be set by the orchestrator  
+            token: self.address_to_bytes32(request.token),
+            amount: request.amount,
+            recipient: self.address_to_bytes32(request.recipient),
+            remote_call: Bytes::default(),
+            fulfillment_context: Bytes::default(),
+        };
+        
+        let params = FillParams {
+            fill_deadline: request.fill_deadline,
+            order_id: order_id_bytes32,
+            output: mandate_output,
+            proposed_solver: FixedBytes::ZERO, // Will be set by the orchestrator
+        };
+        
+        info!("✅ FillParams created successfully");
+        Ok(params)
+    }
+    
+    /// Internal implementation for fill call encoding
+    fn encode_fill_call_internal(&self, params: &FillParams) -> Result<Vec<u8>> {
+        info!("🔧 Encoding CoinFiller.fill() call with Foundry cast");
+        
+        // Get the function signature from ABI registry
+        let function_sig = self.abi_provider
+            .get_function_signature("CoinFiller", "fill")
+            .unwrap_or_else(|_| {
+                info!("⚠️ Using fallback fill function signature");
+                "fill(uint32,bytes32,(bytes32,bytes32,uint256,bytes32,uint256,bytes32,bytes,bytes),bytes32)".to_string()
+            });
+            
+        info!("📋 Using function signature: {}", function_sig);
+        
+        // Build the arguments for cast
+        let fill_deadline_arg = params.fill_deadline.to_string();
+        let order_id_arg = format!("0x{}", hex::encode(params.order_id));
+        let output_arg = format!("(0x{},0x{},{},0x{},{},0x{},0x{},0x{})",
+            hex::encode(params.output.remote_oracle),
+            hex::encode(params.output.remote_filler),
+            params.output.chain_id,
+            hex::encode(params.output.token),
+            params.output.amount,
+            hex::encode(params.output.recipient),
+            hex::encode(&params.output.remote_call),
+            hex::encode(&params.output.fulfillment_context)
+        );
+        let proposed_solver_arg = format!("0x{}", hex::encode(params.proposed_solver));
+        
+        info!("🎯 Fill call arguments:");
+        info!("  [0]: {}", fill_deadline_arg);
+        info!("  [1]: {}", order_id_arg);
+        info!("  [2]: {}", &output_arg[..200.min(output_arg.len())]);
+        info!("  [3]: {}", proposed_solver_arg);
+        
+        // Execute cast command
+        let output = Command::new("cast")
+            .arg("abi-encode")
+            .arg(&function_sig)
+            .arg(&fill_deadline_arg)
+            .arg(&order_id_arg)
+            .arg(&output_arg)
+            .arg(&proposed_solver_arg)
+            .output()
+            .map_err(|e| anyhow::anyhow!("Failed to execute cast: {}", e))?;
+            
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow::anyhow!("Cast command failed: {}", stderr));
+        }
+        
+        // Parse encoded parameters
+        let encoded_hex = String::from_utf8(output.stdout)?
+            .trim()
+            .strip_prefix("0x")
+            .unwrap_or("")
+            .to_string();
+            
+        let encoded_bytes = hex::decode(&encoded_hex)
+            .map_err(|e| anyhow::anyhow!("Failed to decode fill calldata: {}", e))?;
+            
+        // Get function selector
+        let selector_output = Command::new("cast")
+            .arg("sig")
+            .arg(&function_sig)
+            .output()
+            .map_err(|e| anyhow::anyhow!("Failed to get fill function selector: {}", e))?;
+            
+        if !selector_output.status.success() {
+            let stderr = String::from_utf8_lossy(&selector_output.stderr);
+            return Err(anyhow::anyhow!("Failed to get fill function selector: {}", stderr));
+        }
+        
+        let selector_hex = String::from_utf8(selector_output.stdout)?.trim().to_string();
+        let selector_hex = selector_hex.strip_prefix("0x").unwrap_or(&selector_hex);
+        let selector_bytes = hex::decode(selector_hex)
+            .map_err(|e| anyhow::anyhow!("Failed to decode fill selector: {}", e))?;
+
+        // Combine selector + parameters
+        let calldata = [selector_bytes.as_slice(), &encoded_bytes].concat();
+        
+        info!("✅ Fill call encoded successfully");
+        info!("  Call data length: {} bytes", calldata.len());
+        info!("  Function selector: 0x{}", hex::encode(&calldata[..4]));
+        
+        Ok(calldata)
+    }
+    
+    /// Convert string order_id to bytes32
+    fn string_to_order_id(&self, order_id: &str) -> FixedBytes<32> {
+        if order_id.starts_with("0x") {
+            // Parse hex string
+            let hex_str = &order_id[2..];
+            let mut bytes = [0u8; 32];
+            if hex_str.len() <= 64 {
+                let decoded = hex::decode(hex_str).unwrap_or_default();
+                let start = 32 - decoded.len().min(32);
+                bytes[start..].copy_from_slice(&decoded[..decoded.len().min(32)]);
+            }
+            FixedBytes::from(bytes)
+        } else {
+            // Treat as string, convert to bytes32
+            let mut bytes = [0u8; 32];
+            let string_bytes = order_id.as_bytes();
+            let copy_len = string_bytes.len().min(32);
+            bytes[..copy_len].copy_from_slice(&string_bytes[..copy_len]);
+            FixedBytes::from(bytes)
+        }
+    }
+    
+    /// Convert Address to bytes32 (left-padded)
+    fn address_to_bytes32(&self, address: Address) -> FixedBytes<32> {
+        let mut bytes32 = [0u8; 32];
+        bytes32[12..].copy_from_slice(address.as_slice());
+        FixedBytes::from(bytes32)
+    }
+
     /// Legacy method for fill call encoding (specific parameters)
-    pub fn encode_fill_call(&self, params: &FillParams) -> Result<Vec<u8>> {
+    pub fn encode_fill_call_legacy(&self, params: &FillParams) -> Result<Vec<u8>> {
         info!("🔧 Using Foundry cast ABI encoder for CoinFiller.fill()");
         
         // Check cast availability first

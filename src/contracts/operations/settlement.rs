@@ -3,6 +3,7 @@ use crate::contracts::execution::traits::{ExecutionEngine, GasParams};
 use crate::contracts::abi::AbiProvider;
 use crate::contracts::encoding::FoundryEncoder;
 use crate::contracts::execution::AlloyExecutor;
+use crate::contracts::execution::traits::ChainType;
 use crate::models::Order;
 use crate::config::AppConfig;
 use alloy::primitives::{Address, U256, FixedBytes, Bytes};
@@ -83,7 +84,7 @@ impl FinalizationOrchestrator {
             gas_price: 1178761408,
         };
         
-        let tx_hash = self.executor.send_transaction(call_data, settler_compact_address, gas_params).await?;
+        let tx_hash = self.executor.send_transaction(ChainType::Origin, call_data, settler_compact_address, gas_params).await?;
         
         info!("🎉 MODULAR FINALIZATION COMPLETED:");
         info!("  Order ID: {}", order.id);
@@ -291,7 +292,7 @@ impl FinalizationOrchestrator {
         let settler_compact_address = self.config.contracts.settler_compact.parse::<Address>()?;
         let from_address = self.executor.wallet_address();
         
-        let gas_estimate = self.executor.estimate_gas(call_data, settler_compact_address, from_address).await?;
+        let gas_estimate = self.executor.estimate_gas(ChainType::Origin, call_data, settler_compact_address, from_address).await?;
         
         info!("✅ Gas estimation completed: {} gas", gas_estimate);
         
