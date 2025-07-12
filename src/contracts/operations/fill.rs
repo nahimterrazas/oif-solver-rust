@@ -113,13 +113,21 @@ impl FillOrchestrator {
             gas_limit: 360000u64, // Gas limit matching TypeScript
             gas_price: 50_000_000_000u64, // Gas price (50 gwei)
         };
-        let tx_hash = self.executor.send_transaction(
+                let response = self.executor.send_transaction(
             ChainType::Destination, // Fill operations execute on destination chain
             call_data,
             coin_filler_address,
             gas_params,
+            None, // No special context needed for fill operations
         ).await?;
-        
+
+        let tx_hash = match response {
+            crate::contracts::execution::ExecutionResponse::Immediate(hash) => hash,
+            crate::contracts::execution::ExecutionResponse::Async { request_id, .. } => {
+                return Err(anyhow::anyhow!("Fill execution returned async response unexpectedly: {}", request_id));
+            }
+        };
+
         info!("✅ Modular fill completed successfully: {}", tx_hash);
         Ok(tx_hash)
     }
