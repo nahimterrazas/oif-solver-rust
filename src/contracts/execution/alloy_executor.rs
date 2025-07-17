@@ -380,6 +380,7 @@ mod tests {
                 enabled: true,
                 data_file: "data/orders.json".to_string(),
             },
+            relayer: None,
         })
     }
 

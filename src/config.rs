@@ -10,6 +10,19 @@ pub struct AppConfig {
     pub contracts: ContractConfig,
     pub monitoring: MonitoringConfig,
     pub persistence: PersistenceConfig,
+    pub relayer: Option<RelayerConfig>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct RelayerConfig {
+    pub enabled: bool,
+    pub api_base_url: String,
+    pub api_key: String,
+    pub webhook_url: Option<String>,
+    pub timeout_seconds: u64,
+    pub max_retries: u32,
+    pub use_async: bool,
+    pub chain_endpoints: HashMap<u64, String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -88,10 +101,36 @@ impl AppConfig {
             config.chains.destination.rpc_url = dest_rpc;
         }
 
+        // Override relayer config with environment variables if present
+        if let Ok(relayer_enabled) = std::env::var("RELAYER_ENABLED") {
+            if let Some(ref mut relayer) = config.relayer {
+                relayer.enabled = relayer_enabled.parse().unwrap_or(false);
+            }
+        }
+
+        if let Ok(relayer_url) = std::env::var("RELAYER_API_URL") {
+            if let Some(ref mut relayer) = config.relayer {
+                relayer.api_base_url = relayer_url;
+            }
+        }
+
+        if let Ok(relayer_key) = std::env::var("RELAYER_API_KEY") {
+            if let Some(ref mut relayer) = config.relayer {
+                relayer.api_key = relayer_key;
+            }
+        }
+
         tracing::info!("Final configuration:");
         tracing::info!("  Server: {}:{}", config.server.host, config.server.port);
         tracing::info!("  Origin chain: {}", config.chains.origin.rpc_url);
         tracing::info!("  Destination chain: {}", config.chains.destination.rpc_url);
+        if let Some(ref relayer) = config.relayer {
+            tracing::info!("  Relayer enabled: {}", relayer.enabled);
+            if relayer.enabled {
+                tracing::info!("  Relayer URL: {}", relayer.api_base_url);
+                tracing::info!("  Relayer API key: {}***", &relayer.api_key[..10.min(relayer.api_key.len())]);
+            }
+        }
 
         Ok(config)
     }
@@ -131,6 +170,21 @@ impl Default for AppConfig {
                 enabled: true,
                 data_file: "data/orders.json".to_string(),
             },
+            relayer: Some(RelayerConfig {
+                enabled: false, // Disabled by default
+                api_base_url: "http://localhost:8080/api/v1".to_string(),
+                api_key: "example-#1234567890123456789012345678901234567890".to_string(),
+                webhook_url: None,
+                timeout_seconds: 300,
+                max_retries: 3,
+                use_async: false, // Use sync mode by default for local testing
+                chain_endpoints: {
+                    let mut endpoints: HashMap<u64, String> = HashMap::new();
+                    endpoints.insert(31337, "anvil-origin-relayer".to_string());
+                    endpoints.insert(31338, "anvil-destination-relayer".to_string());
+                    endpoints
+                },
+            }),
         }
     }
 } 

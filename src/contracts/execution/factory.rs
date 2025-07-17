@@ -50,7 +50,7 @@ impl DefaultExecutionEngineFactory {
         let relayer_config = self.config.relayer_config.as_ref()
             .ok_or_else(|| anyhow::anyhow!("OpenZeppelin relayer configuration not provided"))?;
         
-        let executor = OpenZeppelinExecutor::new(relayer_config.clone(), self.config.wallet_address)?;
+        let executor = OpenZeppelinExecutor::new(Arc::new(relayer_config.clone()), self.config.wallet_address)?;
         Ok(Box::new(executor))
     }
 }
@@ -159,7 +159,7 @@ impl Default for ExecutionEngineConfigBuilder {
 
 /// Smart factory that can automatically choose the best executor based on context
 pub struct SmartExecutionEngineFactory {
-    factory: DefaultExecutionEngineFactory,
+    pub factory: DefaultExecutionEngineFactory,
     fallback_enabled: bool,
 }
 
@@ -359,6 +359,7 @@ mod tests {
                 enabled: true,
                 data_file: "data/orders.json".to_string(),
             },
+            relayer: None,
         })
     }
 

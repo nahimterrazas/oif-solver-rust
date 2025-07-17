@@ -68,3 +68,7 @@ tokio-test = "0.4"
 #[[bin]]
 #name = "verify_signatures"
 #path = "src/verify_signatures.rs"
+
+#[[example]]
+#name = "relayer_demo"
+#path = "examples/relayer_demo.rs"

@@ -54,8 +54,34 @@ impl FillOrchestrator {
         
         // Create default encoder and executor
         let encoder = Arc::new(crate::contracts::encoding::AlloyEncoder::new(abi_provider));
-        let executor = Arc::new(crate::contracts::execution::AlloyExecutor::new(config.clone())?);
         
+        // Get wallet address from config
+        let wallet_address = {
+            use alloy::signers::local::PrivateKeySigner;
+            use std::str::FromStr;
+            let signer = PrivateKeySigner::from_str(&config.solver.private_key)?;
+            signer.address()
+        };
+        
+        // Create OpenZeppelin executor if relayer config is available
+        let executor: Arc<dyn crate::contracts::execution::ExecutionEngine> = if let Some(relayer_config) = &config.relayer {
+            let oz_relayer_config = crate::contracts::execution::RelayerConfig {
+                api_base_url: relayer_config.api_base_url.clone(),
+                api_key: relayer_config.api_key.clone(),
+                webhook_url: relayer_config.webhook_url.clone(),
+                chain_endpoints: relayer_config.chain_endpoints.clone(),
+                timeout_seconds: relayer_config.timeout_seconds,
+                max_retries: relayer_config.max_retries,
+                use_async: relayer_config.use_async,
+            };
+            
+            info!("🔗 Creating OpenZeppelin executor with relayer config");
+            Arc::new(crate::contracts::execution::OpenZeppelinExecutor::new(Arc::new(oz_relayer_config), wallet_address)?)
+        } else {
+            info!("📡 Creating Alloy executor (no relayer config)");
+            Arc::new(crate::contracts::execution::AlloyExecutor::new(config.clone())?)
+        };
+
         Self::new_with_traits(encoder, executor, config)
     }
     
@@ -255,6 +281,7 @@ mod tests {
                 enabled: false,
                 data_file: "test_orders.json".to_string(),
             },
+            relayer: None,
         }
     }
 

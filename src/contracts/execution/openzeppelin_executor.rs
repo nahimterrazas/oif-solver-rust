@@ -17,9 +17,10 @@ use uuid::Uuid;
 struct RelayRequest {
     pub to: String,
     pub data: String,
-    pub gas_limit: String,
-    pub gas_price: String,
-    pub speed: String,
+    pub gas_limit: u64,
+    pub gas_price: u64,
+    pub speed: Option<String>,
+    pub value: String,
     pub is_private: bool,
 }
 
@@ -47,7 +48,7 @@ struct RelayStatusResponse {
 #[derive(Debug, Clone)]
 pub enum RelaySpeed {
     Safest,
-    Standard,
+    Average,
     Fast,
     Fastest,
 }
@@ -56,7 +57,7 @@ impl RelaySpeed {
     fn as_str(&self) -> &str {
         match self {
             RelaySpeed::Safest => "safest",
-            RelaySpeed::Standard => "standard", 
+            RelaySpeed::Average => "average", 
             RelaySpeed::Fast => "fast",
             RelaySpeed::Fastest => "fastest",
         }
@@ -65,7 +66,7 @@ impl RelaySpeed {
 
 /// OpenZeppelin Relayer Executor implementation
 pub struct OpenZeppelinExecutor {
-    config: RelayerConfig,
+    config: Arc<RelayerConfig>,
     client: Client,
     pending_requests: Arc<RwLock<HashMap<String, PendingRequest>>>,
     wallet_address: Address,
@@ -84,7 +85,7 @@ struct PendingRequest {
 
 impl OpenZeppelinExecutor {
     /// Create a new OpenZeppelin relayer executor
-    pub fn new(config: RelayerConfig, wallet_address: Address) -> Result<Self> {
+    pub fn new(config: Arc<RelayerConfig>, wallet_address: Address) -> Result<Self> {
         info!("🔧 Initializing OpenZeppelinExecutor");
         info!("  API Base URL: {}", config.api_base_url);
         info!("  Supported chains: {:?}", config.chain_endpoints.keys().collect::<Vec<_>>());
@@ -93,7 +94,7 @@ impl OpenZeppelinExecutor {
 
         // Create HTTP client with default headers
         let mut headers = HeaderMap::new();
-        headers.insert("X-API-Key", config.api_key.parse()
+        headers.insert("Authorization", format!("Bearer {}", config.api_key).parse()
             .map_err(|e| anyhow::anyhow!("Invalid API key format: {}", e))?);
         headers.insert("Content-Type", "application/json".parse()
             .map_err(|e| anyhow::anyhow!("Invalid content type: {}", e))?);
@@ -119,15 +120,15 @@ impl OpenZeppelinExecutor {
         let chain_endpoint = self.config.chain_endpoints.get(&chain_id)
             .ok_or_else(|| anyhow::anyhow!("No endpoint configured for chain {}", chain_id))?;
         
-        Ok(format!("{}/{}", self.config.api_base_url.trim_end_matches('/'), chain_endpoint))
+        Ok(format!("{}/{}/transactions", self.config.api_base_url.trim_end_matches('/'), chain_endpoint))
     }
 
     /// Map ChainType to chain ID (this should come from configuration)
     fn get_chain_id(&self, chain: ChainType) -> Result<u64> {
         // This should be configurable, but for now we'll use common chain IDs
         match chain {
-            ChainType::Origin => Ok(1), // Ethereum mainnet
-            ChainType::Destination => Ok(137), // Polygon
+            ChainType::Origin => Ok(31337), // Ethereum mainnet
+            ChainType::Destination => Ok(31338), // Polygon
         }
     }
 
@@ -136,7 +137,7 @@ impl OpenZeppelinExecutor {
         match priority {
             crate::contracts::execution::traits::ExecutionPriority::Critical => RelaySpeed::Fastest,
             crate::contracts::execution::traits::ExecutionPriority::High => RelaySpeed::Fast,
-            crate::contracts::execution::traits::ExecutionPriority::Normal => RelaySpeed::Standard,
+            crate::contracts::execution::traits::ExecutionPriority::Normal => RelaySpeed::Average,
             crate::contracts::execution::traits::ExecutionPriority::Low => RelaySpeed::Safest,
         }
     }
@@ -151,14 +152,15 @@ impl OpenZeppelinExecutor {
     ) -> RelayRequest {
         let speed = context
             .map(|ctx| Self::priority_to_speed(&ctx.priority))
-            .unwrap_or(RelaySpeed::Standard);
+            .unwrap_or(RelaySpeed::Average);
 
         RelayRequest {
             to: format!("0x{:x}", to),
             data: format!("0x{}", hex::encode(call_data)),
-            gas_limit: gas.gas_limit.to_string(),
-            gas_price: gas.gas_price.to_string(),
-            speed: speed.as_str().to_string(),
+            gas_limit: gas.gas_limit,
+            gas_price: gas.gas_price,
+            speed: None,
+            value: "0".to_string(), // Default to 0 ETH value for contract calls
             is_private: false, // Could be configurable
         }
     }
@@ -200,7 +202,9 @@ impl OpenZeppelinExecutor {
         endpoint: &str,
         transaction_id: &str,
     ) -> Result<RelayStatusResponse> {
-        let status_endpoint = format!("{}/status/{}", endpoint, transaction_id);
+        // Remove /transactions from endpoint and add /{transaction_id} for status
+        let base_endpoint = endpoint.strip_suffix("/transactions").unwrap_or(endpoint);
+        let status_endpoint = format!("{}/transactions/{}", base_endpoint, transaction_id);
         
         debug!("🔍 Polling transaction status: {}", status_endpoint);
 
@@ -497,7 +501,7 @@ mod tests {
         let wallet_address = Address::from_str("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
             .expect("Valid test address");
         
-        let result = OpenZeppelinExecutor::new(config, wallet_address);
+        let result = OpenZeppelinExecutor::new(Arc::new(config), wallet_address);
         assert!(result.is_ok(), "OpenZeppelinExecutor creation should succeed: {:?}", result.err());
         
         let executor = result.unwrap();
@@ -524,7 +528,7 @@ mod tests {
         let config = create_test_config();
         let wallet_address = Address::from_str("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
             .expect("Valid test address");
-        let executor = OpenZeppelinExecutor::new(config, wallet_address).unwrap();
+        let executor = OpenZeppelinExecutor::new(Arc::new(config), wallet_address).unwrap();
         
         let call_data = vec![0x01, 0x02, 0x03, 0x04];
         let to_address = Address::from_str("0x5FC8d32690cc91D4c39d9d3abcBD16989F875707")
@@ -543,9 +547,10 @@ mod tests {
         
         assert_eq!(request.to, "0x5fc8d32690cc91d4c39d9d3abcbd16989f875707");
         assert_eq!(request.data, "0x01020304");
-        assert_eq!(request.gas_limit, "650000");
-        assert_eq!(request.gas_price, "1178761408");
-        assert_eq!(request.speed, "fast");
+        assert_eq!(request.gas_limit, 650000);
+        assert_eq!(request.gas_price, 1178761408);
+        assert_eq!(request.speed, None);
+        assert_eq!(request.value, "0");
         
         println!("✅ Relay request creation works correctly");
     }
