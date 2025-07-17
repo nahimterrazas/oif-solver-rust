@@ -84,8 +84,15 @@ impl FinalizationOrchestrator {
             gas_price: 1178761408,
         };
         
-        let tx_hash = self.executor.send_transaction(ChainType::Origin, call_data, settler_compact_address, gas_params).await?;
+        let response = self.executor.send_transaction(ChainType::Origin, call_data, settler_compact_address, gas_params, None).await?;
         
+        let tx_hash = match response {
+            crate::contracts::execution::ExecutionResponse::Immediate(hash) => hash,
+            crate::contracts::execution::ExecutionResponse::Async { request_id, .. } => {
+                return Err(anyhow::anyhow!("Settlement execution returned async response unexpectedly: {}", request_id));
+            }
+        };
+
         info!("🎉 MODULAR FINALIZATION COMPLETED:");
         info!("  Order ID: {}", order.id);
         info!("  Transaction hash: {}", tx_hash);
@@ -496,6 +503,7 @@ mod tests {
                 enabled: true,
                 data_file: "data/orders.json".to_string(),
             },
+            relayer: None,
         })
     }
 

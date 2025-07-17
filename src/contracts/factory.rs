@@ -649,6 +649,7 @@ mod tests {
                 enabled: false,
                 data_file: "test_orders.json".to_string(),
             },
+            relayer: None,
         }
     }
     

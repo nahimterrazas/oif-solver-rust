@@ -20,7 +20,7 @@ use crate::services::monitoring::OrderMonitoringService;
 async fn main() -> Result<()> {
     // Initialize logging
     tracing_subscriber::fmt()
-        .with_env_filter("info")
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
     info!("Starting OIF Solver Rust POC");

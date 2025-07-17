@@ -27,3 +27,17 @@ check_interval_seconds = 60
 [persistence]
 enabled = true
 data_file = "data/orders.json"
+
+[relayer]
+enabled = true
+api_base_url = "http://localhost:8080/api/v1/relayers"
+api_key = "example-#1234567890123456789012345678901234567890"
+webhook_url = ""  # Optional webhook URL for async notifications
+timeout_seconds = 300
+max_retries = 3
+use_async = false  # Set to true for async execution with webhooks
+
+# Chain endpoint mappings for the relayer
+[relayer.chain_endpoints]
+31337 = "anvil-origin-relayer"      # Origin chain endpoint
+31338 = "anvil-destination-relayer" # Destination chain endpoint

@@ -1,9 +1,9 @@
 [
   {
-    "id": "580ecb7d-7d22-45ab-b1b6-41d5d54b55c9",
+    "id": "0974122c-5dc4-4359-8ffd-ac3541cdf98a",
     "standard_order": {
       "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-      "nonce": 179,
+      "nonce": 857,
       "originChainId": 31337,
       "expires": 4294967295,
       "fillDeadline": 4294967295,
@@ -27,13 +27,337 @@
         }
       ]
     },
-    "signature": "0xbd6e0665e9baa187628f17dde8c6e427d60485d48b778055c6da16c8b4b0c39f629bfad50bc90506c73c55a75886324b1546cf09fa2b762a2ee0a8b66a9690921b",
+    "signature": "0xbe2012200d60375feafa908a616e9725814e3f434b9b1b575e31e4ad0fc3a541378e5c52b9eba7de60f44c10a0d18aec5470976d04523934509c7ace4d98e5e31c",
+    "status": "Failed",
+    "created_at": "2025-07-16T19:57:46.545381Z",
+    "updated_at": "2025-07-16T19:57:51.419640Z",
+    "fill_tx_hash": null,
+    "finalize_tx_hash": null,
+    "error_message": "Fill execution error: Relay request failed with status 400 Bad Request: {\"success\":false,\"data\":null,\"error\":\"missing field `value`\"}"
+  },
+  {
+    "id": "db7e8190-193f-4e27-847c-5e468abe369f",
+    "standard_order": {
+      "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "nonce": 857,
+      "originChainId": 31337,
+      "expires": 4294967295,
+      "fillDeadline": 4294967295,
+      "localOracle": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "inputs": [
+        [
+          "232173931049414487598928205764542517475099722052565410375093941968804628563",
+          "100000000000000000000"
+        ]
+      ],
+      "outputs": [
+        {
+          "remoteOracle": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+          "remoteFiller": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+          "chainId": 31338,
+          "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+          "amount": "99000000000000000000",
+          "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "remoteCall": null,
+          "fulfillmentContext": null
+        }
+      ]
+    },
+    "signature": "0xbe2012200d60375feafa908a616e9725814e3f434b9b1b575e31e4ad0fc3a541378e5c52b9eba7de60f44c10a0d18aec5470976d04523934509c7ace4d98e5e31c",
+    "status": "Failed",
+    "created_at": "2025-07-16T19:34:42.893933Z",
+    "updated_at": "2025-07-16T19:34:43.131683Z",
+    "fill_tx_hash": null,
+    "finalize_tx_hash": null,
+    "error_message": "Fill execution error: Relay request failed with status 404 Not Found: "
+  },
+  {
+    "id": "e2bb4bf0-5e02-4246-97c9-938eb81f8e49",
+    "standard_order": {
+      "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "nonce": 857,
+      "originChainId": 31337,
+      "expires": 4294967295,
+      "fillDeadline": 4294967295,
+      "localOracle": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "inputs": [
+        [
+          "232173931049414487598928205764542517475099722052565410375093941968804628563",
+          "100000000000000000000"
+        ]
+      ],
+      "outputs": [
+        {
+          "remoteOracle": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+          "remoteFiller": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+          "chainId": 31338,
+          "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+          "amount": "99000000000000000000",
+          "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "remoteCall": null,
+          "fulfillmentContext": null
+        }
+      ]
+    },
+    "signature": "0xbe2012200d60375feafa908a616e9725814e3f434b9b1b575e31e4ad0fc3a541378e5c52b9eba7de60f44c10a0d18aec5470976d04523934509c7ace4d98e5e31c",
+    "status": "Failed",
+    "created_at": "2025-07-16T19:14:53.278039Z",
+    "updated_at": "2025-07-16T19:14:53.827067Z",
+    "fill_tx_hash": null,
+    "finalize_tx_hash": null,
+    "error_message": "Fill execution error: Relay request failed with status 401 Unauthorized: {\"success\": false, \"code\": 401, \"error\": \"Unauthorized\", \"message\": \"Unauthorized\"}"
+  },
+  {
+    "id": "20351eb2-0c9e-49b4-a169-b6797229ee6d",
+    "standard_order": {
+      "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "nonce": 354,
+      "originChainId": 31337,
+      "expires": 4294967295,
+      "fillDeadline": 4294967295,
+      "localOracle": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "inputs": [
+        [
+          "232173931049414487598928205764542517475099722052565410375093941968804628563",
+          "100000000000000000000"
+        ]
+      ],
+      "outputs": [
+        {
+          "remoteOracle": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+          "remoteFiller": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+          "chainId": 31338,
+          "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+          "amount": "99000000000000000000",
+          "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "remoteCall": null,
+          "fulfillmentContext": null
+        }
+      ]
+    },
+    "signature": "0x6166982e352c1f7fa629200972f62cb1adabe82955dc28ec6b2e040c0b2d5d4d7f676bd5eff8bc8c421ad80d86c0a31628ceeda78767c30f9a804df5e20b12331c",
     "status": "Finalized",
-    "created_at": "2025-07-09T20:01:29.955545Z",
-    "updated_at": "2025-07-09T20:01:50.760974Z",
-    "fill_tx_hash": "0x895b878d0f288e3e7f1ee43927c14e4a7a3214dc60219d8a1da7d4aa23635e0c",
-    "finalize_tx_hash": "0x82c32796e4b48bbb88837e6578bbbdf9c5647e75a06de949219e5031973c5aa0",
+    "created_at": "2025-07-11T14:17:09.810776Z",
+    "updated_at": "2025-07-11T14:22:56.395222Z",
+    "fill_tx_hash": "0x0a2de0e7c3ad3443cdd84008229d9ab750a63548495998ab1aed4b0097cdce1c",
+    "finalize_tx_hash": "0xe45e759248ac680cd92f7c39d2c0435b2ef0f985af3416f5f9ebc0f32e112bd7",
     "error_message": null
+  },
+  {
+    "id": "51fd99ae-1b0c-4dea-8dd9-faed9f999657",
+    "standard_order": {
+      "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "nonce": 254,
+      "originChainId": 31337,
+      "expires": 4294967295,
+      "fillDeadline": 4294967295,
+      "localOracle": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "inputs": [
+        [
+          "232173931049414487598928205764542517475099722052565410375093941968804628563",
+          "100000000000000000000"
+        ]
+      ],
+      "outputs": [
+        {
+          "remoteOracle": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+          "remoteFiller": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+          "chainId": 31338,
+          "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+          "amount": "99000000000000000000",
+          "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "remoteCall": null,
+          "fulfillmentContext": null
+        }
+      ]
+    },
+    "signature": "0xbb38d5ce7afafc2ef07b086433df94984f06f6a3daa8f5c31332c864bb57961a2179f4354c44ac384101b9e8db8377b42d5584b43ced95d5049aafba5b5647cf1b",
+    "status": "Failed",
+    "created_at": "2025-07-11T13:58:16.769307Z",
+    "updated_at": "2025-07-11T13:58:18.855225Z",
+    "fill_tx_hash": null,
+    "finalize_tx_hash": null,
+    "error_message": "Fill execution error: Transaction reverted: 0xe8b3720a7b289ecf2fc28bdc24d5b1d49cd70e3a3a3c843b3819931d687fec28"
+  },
+  {
+    "id": "04a5a137-a93b-44ad-983f-427f59b31ff0",
+    "standard_order": {
+      "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "nonce": 857,
+      "originChainId": 31337,
+      "expires": 4294967295,
+      "fillDeadline": 4294967295,
+      "localOracle": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "inputs": [
+        [
+          "232173931049414487598928205764542517475099722052565410375093941968804628563",
+          "100000000000000000000"
+        ]
+      ],
+      "outputs": [
+        {
+          "remoteOracle": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+          "remoteFiller": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+          "chainId": 31338,
+          "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+          "amount": "99000000000000000000",
+          "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "remoteCall": null,
+          "fulfillmentContext": null
+        }
+      ]
+    },
+    "signature": "0xbe2012200d60375feafa908a616e9725814e3f434b9b1b575e31e4ad0fc3a541378e5c52b9eba7de60f44c10a0d18aec5470976d04523934509c7ace4d98e5e31c",
+    "status": "Failed",
+    "created_at": "2025-07-16T19:07:30.156031Z",
+    "updated_at": "2025-07-16T19:07:35.018130Z",
+    "fill_tx_hash": null,
+    "finalize_tx_hash": null,
+    "error_message": "Fill execution error: No endpoint configured for chain 137"
+  },
+  {
+    "id": "34f6b377-e2f6-4a22-b1ca-112c1d353d8b",
+    "standard_order": {
+      "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "nonce": 857,
+      "originChainId": 31337,
+      "expires": 4294967295,
+      "fillDeadline": 4294967295,
+      "localOracle": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "inputs": [
+        [
+          "232173931049414487598928205764542517475099722052565410375093941968804628563",
+          "100000000000000000000"
+        ]
+      ],
+      "outputs": [
+        {
+          "remoteOracle": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+          "remoteFiller": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+          "chainId": 31338,
+          "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+          "amount": "99000000000000000000",
+          "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "remoteCall": null,
+          "fulfillmentContext": null
+        }
+      ]
+    },
+    "signature": "0xbe2012200d60375feafa908a616e9725814e3f434b9b1b575e31e4ad0fc3a541378e5c52b9eba7de60f44c10a0d18aec5470976d04523934509c7ace4d98e5e31c",
+    "status": "Failed",
+    "created_at": "2025-07-16T20:04:40.903696Z",
+    "updated_at": "2025-07-16T20:04:41.859105Z",
+    "fill_tx_hash": null,
+    "finalize_tx_hash": null,
+    "error_message": "Fill execution error: Relay request failed with status 400 Bad Request: {\"success\":false,\"data\":null,\"error\":\"Gas price is too high\"}"
+  },
+  {
+    "id": "a0a69377-7154-4b95-bab8-259aac311b71",
+    "standard_order": {
+      "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "nonce": 857,
+      "originChainId": 31337,
+      "expires": 4294967295,
+      "fillDeadline": 4294967295,
+      "localOracle": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "inputs": [
+        [
+          "232173931049414487598928205764542517475099722052565410375093941968804628563",
+          "100000000000000000000"
+        ]
+      ],
+      "outputs": [
+        {
+          "remoteOracle": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+          "remoteFiller": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+          "chainId": 31338,
+          "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+          "amount": "99000000000000000000",
+          "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "remoteCall": null,
+          "fulfillmentContext": null
+        }
+      ]
+    },
+    "signature": "0xbe2012200d60375feafa908a616e9725814e3f434b9b1b575e31e4ad0fc3a541378e5c52b9eba7de60f44c10a0d18aec5470976d04523934509c7ace4d98e5e31c",
+    "status": "Failed",
+    "created_at": "2025-07-16T19:30:08.981925Z",
+    "updated_at": "2025-07-16T19:30:11.657612Z",
+    "fill_tx_hash": null,
+    "finalize_tx_hash": null,
+    "error_message": "Fill execution error: Relay request failed with status 404 Not Found: "
+  },
+  {
+    "id": "3e93ecbc-43df-4a74-ab19-57fdd6d3ec57",
+    "standard_order": {
+      "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "nonce": 857,
+      "originChainId": 31337,
+      "expires": 4294967295,
+      "fillDeadline": 4294967295,
+      "localOracle": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "inputs": [
+        [
+          "232173931049414487598928205764542517475099722052565410375093941968804628563",
+          "100000000000000000000"
+        ]
+      ],
+      "outputs": [
+        {
+          "remoteOracle": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+          "remoteFiller": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+          "chainId": 31338,
+          "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+          "amount": "99000000000000000000",
+          "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "remoteCall": null,
+          "fulfillmentContext": null
+        }
+      ]
+    },
+    "signature": "0xbe2012200d60375feafa908a616e9725814e3f434b9b1b575e31e4ad0fc3a541378e5c52b9eba7de60f44c10a0d18aec5470976d04523934509c7ace4d98e5e31c",
+    "status": "Failed",
+    "created_at": "2025-07-16T19:56:06.019488Z",
+    "updated_at": "2025-07-16T19:56:07.006119Z",
+    "fill_tx_hash": null,
+    "finalize_tx_hash": null,
+    "error_message": "Fill execution error: Relay request failed with status 400 Bad Request: {\"success\":false,\"data\":null,\"error\":\"unknown variant `standard`, expected one of `fastest`, `fast`, `average`, `safeLow`\"}"
+  },
+  {
+    "id": "0e8112d5-5e9e-4e40-bf9b-04723eea8500",
+    "standard_order": {
+      "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "nonce": 857,
+      "originChainId": 31337,
+      "expires": 4294967295,
+      "fillDeadline": 4294967295,
+      "localOracle": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "inputs": [
+        [
+          "232173931049414487598928205764542517475099722052565410375093941968804628563",
+          "100000000000000000000"
+        ]
+      ],
+      "outputs": [
+        {
+          "remoteOracle": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+          "remoteFiller": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+          "chainId": 31338,
+          "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+          "amount": "99000000000000000000",
+          "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "remoteCall": null,
+          "fulfillmentContext": null
+        }
+      ]
+    },
+    "signature": "0xbe2012200d60375feafa908a616e9725814e3f434b9b1b575e31e4ad0fc3a541378e5c52b9eba7de60f44c10a0d18aec5470976d04523934509c7ace4d98e5e31c",
+    "status": "Failed",
+    "created_at": "2025-07-16T19:52:54.933883Z",
+    "updated_at": "2025-07-16T19:52:59.823819Z",
+    "fill_tx_hash": null,
+    "finalize_tx_hash": null,
+    "error_message": "Fill execution error: Relay request failed with status 400 Bad Request: {\"success\":false,\"data\":null,\"error\":\"invalid type: string \\\"360000\\\", expected u64\"}"
   },
   {
     "id": "0491d71f-8f5c-42d1-806c-f3f624892fa6",
@@ -72,10 +396,10 @@
     "error_message": "Fill execution error: Transaction reverted: 0x9472eaf61507b35036f7e7dd94c73f2be678657ee04f59b28c3ecfc4bee7a47e"
   },
   {
-    "id": "20351eb2-0c9e-49b4-a169-b6797229ee6d",
+    "id": "7b047644-85f9-4d4b-b03f-13b9a6d1061d",
     "standard_order": {
       "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-      "nonce": 354,
+      "nonce": 857,
       "originChainId": 31337,
       "expires": 4294967295,
       "fillDeadline": 4294967295,
@@ -99,12 +423,48 @@
         }
       ]
     },
-    "signature": "0x6166982e352c1f7fa629200972f62cb1adabe82955dc28ec6b2e040c0b2d5d4d7f676bd5eff8bc8c421ad80d86c0a31628ceeda78767c30f9a804df5e20b12331c",
+    "signature": "0xbe2012200d60375feafa908a616e9725814e3f434b9b1b575e31e4ad0fc3a541378e5c52b9eba7de60f44c10a0d18aec5470976d04523934509c7ace4d98e5e31c",
+    "status": "Failed",
+    "created_at": "2025-07-16T19:43:20.575168Z",
+    "updated_at": "2025-07-16T19:43:24.846568Z",
+    "fill_tx_hash": null,
+    "finalize_tx_hash": null,
+    "error_message": "Fill execution error: Relay request failed with status 403 Forbidden: {\"success\":false,\"data\":null,\"error\":\"Relayer disabled\"}"
+  },
+  {
+    "id": "ba0cf180-6108-4300-b9aa-4222fadba6a8",
+    "standard_order": {
+      "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "nonce": 637,
+      "originChainId": 31337,
+      "expires": 4294967295,
+      "fillDeadline": 4294967295,
+      "localOracle": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "inputs": [
+        [
+          "232173931049414487598928205764542517475099722052565410375093941968804628563",
+          "100000000000000000000"
+        ]
+      ],
+      "outputs": [
+        {
+          "remoteOracle": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+          "remoteFiller": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+          "chainId": 31338,
+          "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+          "amount": "99000000000000000000",
+          "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "remoteCall": null,
+          "fulfillmentContext": null
+        }
+      ]
+    },
+    "signature": "0x52d19f86e76e03c189795d855c1414c1b703e7e0a5c77624dba23c3baea737612ca26c581706ba0f1d254c7d0cf5b0abccb0a478ad60371885a0066a80b1aa731c",
     "status": "Finalized",
-    "created_at": "2025-07-11T14:17:09.810776Z",
-    "updated_at": "2025-07-11T14:22:56.395222Z",
-    "fill_tx_hash": "0x0a2de0e7c3ad3443cdd84008229d9ab750a63548495998ab1aed4b0097cdce1c",
-    "finalize_tx_hash": "0xe45e759248ac680cd92f7c39d2c0435b2ef0f985af3416f5f9ebc0f32e112bd7",
+    "created_at": "2025-07-14T19:03:51.029545Z",
+    "updated_at": "2025-07-14T19:07:55.505648Z",
+    "fill_tx_hash": "0xb9a01f2f7efc794dea78e526af12c0f0ede81882193bb491d8575e1ba942b8b6",
+    "finalize_tx_hash": "0x2b6bb03d91dff68e3c6d2d0e824c1576b5209d434c6e76266fececf1f2ca0c10",
     "error_message": null
   },
   {
@@ -144,10 +504,10 @@
     "error_message": null
   },
   {
-    "id": "51fd99ae-1b0c-4dea-8dd9-faed9f999657",
+    "id": "a8967f39-c1f1-461c-975f-539f99d40931",
     "standard_order": {
       "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-      "nonce": 254,
+      "nonce": 857,
       "originChainId": 31337,
       "expires": 4294967295,
       "fillDeadline": 4294967295,
@@ -171,12 +531,192 @@
         }
       ]
     },
-    "signature": "0xbb38d5ce7afafc2ef07b086433df94984f06f6a3daa8f5c31332c864bb57961a2179f4354c44ac384101b9e8db8377b42d5584b43ced95d5049aafba5b5647cf1b",
+    "signature": "0xbe2012200d60375feafa908a616e9725814e3f434b9b1b575e31e4ad0fc3a541378e5c52b9eba7de60f44c10a0d18aec5470976d04523934509c7ace4d98e5e31c",
     "status": "Failed",
-    "created_at": "2025-07-11T13:58:16.769307Z",
-    "updated_at": "2025-07-11T13:58:18.855225Z",
+    "created_at": "2025-07-16T19:21:02.918032Z",
+    "updated_at": "2025-07-16T19:21:03.658376Z",
     "fill_tx_hash": null,
     "finalize_tx_hash": null,
-    "error_message": "Fill execution error: Transaction reverted: 0xe8b3720a7b289ecf2fc28bdc24d5b1d49cd70e3a3a3c843b3819931d687fec28"
+    "error_message": "Fill execution error: Relay request failed with status 404 Not Found: "
+  },
+  {
+    "id": "92afd238-c9dd-4918-b3a5-1cef68cb8abf",
+    "standard_order": {
+      "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "nonce": 857,
+      "originChainId": 31337,
+      "expires": 4294967295,
+      "fillDeadline": 4294967295,
+      "localOracle": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "inputs": [
+        [
+          "232173931049414487598928205764542517475099722052565410375093941968804628563",
+          "100000000000000000000"
+        ]
+      ],
+      "outputs": [
+        {
+          "remoteOracle": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+          "remoteFiller": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+          "chainId": 31338,
+          "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+          "amount": "99000000000000000000",
+          "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "remoteCall": null,
+          "fulfillmentContext": null
+        }
+      ]
+    },
+    "signature": "0xbe2012200d60375feafa908a616e9725814e3f434b9b1b575e31e4ad0fc3a541378e5c52b9eba7de60f44c10a0d18aec5470976d04523934509c7ace4d98e5e31c",
+    "status": "Failed",
+    "created_at": "2025-07-16T19:32:49.318695Z",
+    "updated_at": "2025-07-16T19:32:50.331554Z",
+    "fill_tx_hash": null,
+    "finalize_tx_hash": null,
+    "error_message": "Fill execution error: Relay request failed with status 404 Not Found: "
+  },
+  {
+    "id": "e341cd79-de73-4cc5-8bb0-3b4e7f8c662e",
+    "standard_order": {
+      "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "nonce": 857,
+      "originChainId": 31337,
+      "expires": 4294967295,
+      "fillDeadline": 4294967295,
+      "localOracle": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "inputs": [
+        [
+          "232173931049414487598928205764542517475099722052565410375093941968804628563",
+          "100000000000000000000"
+        ]
+      ],
+      "outputs": [
+        {
+          "remoteOracle": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+          "remoteFiller": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+          "chainId": 31338,
+          "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+          "amount": "99000000000000000000",
+          "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "remoteCall": null,
+          "fulfillmentContext": null
+        }
+      ]
+    },
+    "signature": "0xbe2012200d60375feafa908a616e9725814e3f434b9b1b575e31e4ad0fc3a541378e5c52b9eba7de60f44c10a0d18aec5470976d04523934509c7ace4d98e5e31c",
+    "status": "Failed",
+    "created_at": "2025-07-16T20:06:07.197269Z",
+    "updated_at": "2025-07-16T20:06:11.859333Z",
+    "fill_tx_hash": null,
+    "finalize_tx_hash": null,
+    "error_message": "Fill execution error: Failed to parse relay response: error decoding response body: missing field `transaction_id` at line 1 column 1431"
+  },
+  {
+    "id": "580ecb7d-7d22-45ab-b1b6-41d5d54b55c9",
+    "standard_order": {
+      "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "nonce": 179,
+      "originChainId": 31337,
+      "expires": 4294967295,
+      "fillDeadline": 4294967295,
+      "localOracle": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "inputs": [
+        [
+          "232173931049414487598928205764542517475099722052565410375093941968804628563",
+          "100000000000000000000"
+        ]
+      ],
+      "outputs": [
+        {
+          "remoteOracle": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+          "remoteFiller": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+          "chainId": 31338,
+          "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+          "amount": "99000000000000000000",
+          "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "remoteCall": null,
+          "fulfillmentContext": null
+        }
+      ]
+    },
+    "signature": "0xbd6e0665e9baa187628f17dde8c6e427d60485d48b778055c6da16c8b4b0c39f629bfad50bc90506c73c55a75886324b1546cf09fa2b762a2ee0a8b66a9690921b",
+    "status": "Finalized",
+    "created_at": "2025-07-09T20:01:29.955545Z",
+    "updated_at": "2025-07-09T20:01:50.760974Z",
+    "fill_tx_hash": "0x895b878d0f288e3e7f1ee43927c14e4a7a3214dc60219d8a1da7d4aa23635e0c",
+    "finalize_tx_hash": "0x82c32796e4b48bbb88837e6578bbbdf9c5647e75a06de949219e5031973c5aa0",
+    "error_message": null
+  },
+  {
+    "id": "47df6448-c5c1-484c-a354-a9b589b16dd1",
+    "standard_order": {
+      "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "nonce": 857,
+      "originChainId": 31337,
+      "expires": 4294967295,
+      "fillDeadline": 4294967295,
+      "localOracle": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "inputs": [
+        [
+          "232173931049414487598928205764542517475099722052565410375093941968804628563",
+          "100000000000000000000"
+        ]
+      ],
+      "outputs": [
+        {
+          "remoteOracle": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+          "remoteFiller": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+          "chainId": 31338,
+          "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+          "amount": "99000000000000000000",
+          "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "remoteCall": null,
+          "fulfillmentContext": null
+        }
+      ]
+    },
+    "signature": "0xbe2012200d60375feafa908a616e9725814e3f434b9b1b575e31e4ad0fc3a541378e5c52b9eba7de60f44c10a0d18aec5470976d04523934509c7ace4d98e5e31c",
+    "status": "Failed",
+    "created_at": "2025-07-16T20:00:45.323655Z",
+    "updated_at": "2025-07-16T20:00:50.041395Z",
+    "fill_tx_hash": null,
+    "finalize_tx_hash": null,
+    "error_message": "Fill execution error: Relay request failed with status 400 Bad Request: {\"success\":false,\"data\":null,\"error\":\"Cannot mix different transaction types. Use either gasPrice, speed, or EIP1559 parameters\"}"
+  },
+  {
+    "id": "33bc17a5-e450-4bc4-967b-5b3a23fb4ea9",
+    "standard_order": {
+      "user": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "nonce": 169,
+      "originChainId": 31337,
+      "expires": 4294967295,
+      "fillDeadline": 4294967295,
+      "localOracle": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "inputs": [
+        [
+          "232173931049414487598928205764542517475099722052565410375093941968804628563",
+          "100000000000000000000"
+        ]
+      ],
+      "outputs": [
+        {
+          "remoteOracle": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+          "remoteFiller": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+          "chainId": 31338,
+          "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+          "amount": "99000000000000000000",
+          "recipient": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "remoteCall": null,
+          "fulfillmentContext": null
+        }
+      ]
+    },
+    "signature": "0x6bad3cb329d4b4ce32b922ec03eeb7d7fd2e8ed5e48c7a8b0b42b79b4cf6e9e97a83d6280f06cd50f5bf86fc110cadfdc359db78e3f4e207330179b14314abf71c",
+    "status": "Filled",
+    "created_at": "2025-07-14T20:37:52.584932Z",
+    "updated_at": "2025-07-14T20:37:56.277965Z",
+    "fill_tx_hash": "0x460a6b57e57789474fa71bc6b08905f3f89234f6dad1ed61824b478c5ae3bd12",
+    "finalize_tx_hash": null,
+    "error_message": null
   }
 ]

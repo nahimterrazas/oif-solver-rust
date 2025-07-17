@@ -58,6 +58,9 @@ ethers = { version = "2", features = ["abigen", "ws", "rustls"] }
 # Async traits for dyn compatibility
 async-trait = "0.1"
 
+# HTTP Client (for OpenZeppelin relayer)
+reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
+
 [dev-dependencies]
 tokio-test = "0.4" 
 
@@ -65,3 +68,7 @@ tokio-test = "0.4"
 #[[bin]]
 #name = "verify_signatures"
 #path = "src/verify_signatures.rs"
+
+#[[example]]
+#name = "relayer_demo"
+#path = "examples/relayer_demo.rs"

@@ -54,8 +54,34 @@ impl FillOrchestrator {
         
         // Create default encoder and executor
         let encoder = Arc::new(crate::contracts::encoding::AlloyEncoder::new(abi_provider));
-        let executor = Arc::new(crate::contracts::execution::AlloyExecutor::new(config.clone())?);
         
+        // Get wallet address from config
+        let wallet_address = {
+            use alloy::signers::local::PrivateKeySigner;
+            use std::str::FromStr;
+            let signer = PrivateKeySigner::from_str(&config.solver.private_key)?;
+            signer.address()
+        };
+        
+        // Create OpenZeppelin executor if relayer config is available
+        let executor: Arc<dyn crate::contracts::execution::ExecutionEngine> = if let Some(relayer_config) = &config.relayer {
+            let oz_relayer_config = crate::contracts::execution::RelayerConfig {
+                api_base_url: relayer_config.api_base_url.clone(),
+                api_key: relayer_config.api_key.clone(),
+                webhook_url: relayer_config.webhook_url.clone(),
+                chain_endpoints: relayer_config.chain_endpoints.clone(),
+                timeout_seconds: relayer_config.timeout_seconds,
+                max_retries: relayer_config.max_retries,
+                use_async: relayer_config.use_async,
+            };
+            
+            info!("🔗 Creating OpenZeppelin executor with relayer config");
+            Arc::new(crate::contracts::execution::OpenZeppelinExecutor::new(Arc::new(oz_relayer_config), wallet_address)?)
+        } else {
+            info!("📡 Creating Alloy executor (no relayer config)");
+            Arc::new(crate::contracts::execution::AlloyExecutor::new(config.clone())?)
+        };
+
         Self::new_with_traits(encoder, executor, config)
     }
     
@@ -113,13 +139,21 @@ impl FillOrchestrator {
             gas_limit: 360000u64, // Gas limit matching TypeScript
             gas_price: 50_000_000_000u64, // Gas price (50 gwei)
         };
-        let tx_hash = self.executor.send_transaction(
+                let response = self.executor.send_transaction(
             ChainType::Destination, // Fill operations execute on destination chain
             call_data,
             coin_filler_address,
             gas_params,
+            None, // No special context needed for fill operations
         ).await?;
-        
+
+        let tx_hash = match response {
+            crate::contracts::execution::ExecutionResponse::Immediate(hash) => hash,
+            crate::contracts::execution::ExecutionResponse::Async { request_id, .. } => {
+                return Err(anyhow::anyhow!("Fill execution returned async response unexpectedly: {}", request_id));
+            }
+        };
+
         info!("✅ Modular fill completed successfully: {}", tx_hash);
         Ok(tx_hash)
     }
@@ -247,6 +281,7 @@ mod tests {
                 enabled: false,
                 data_file: "test_orders.json".to_string(),
             },
+            relayer: None,
         }
     }
 

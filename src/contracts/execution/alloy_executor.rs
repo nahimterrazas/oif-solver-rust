@@ -1,4 +1,4 @@
-use crate::contracts::execution::traits::{ExecutionEngine, GasParams, ChainType};
+use crate::contracts::execution::traits::{ExecutionEngine, GasParams, ChainType, TransportType, ExecutionContext, ExecutionResponse, AsyncStatus};
 use crate::config::AppConfig;
 use alloy::{
     providers::{Provider, ProviderBuilder},
@@ -111,7 +111,7 @@ impl AlloyExecutor {
 
 #[async_trait]
 impl ExecutionEngine for AlloyExecutor {
-    async fn send_transaction(&self, chain: ChainType, call_data: Vec<u8>, to: Address, gas: GasParams) -> Result<String> {
+    async fn send_transaction(&self, chain: ChainType, call_data: Vec<u8>, to: Address, gas: GasParams, context: Option<ExecutionContext>) -> Result<ExecutionResponse> {
         info!("🚀 AlloyExecutor: Sending transaction to {}", to);
         info!("  Chain: {:?}", chain);
         info!("  Call data: {} bytes", call_data.len());
@@ -164,7 +164,7 @@ impl ExecutionEngine for AlloyExecutor {
             return Err(anyhow::anyhow!("Transaction reverted: {}", tx_hash));
         }
         
-        Ok(tx_hash)
+        Ok(ExecutionResponse::Immediate(tx_hash))
     }
     
     async fn static_call(&self, chain: ChainType, call_data: Vec<u8>, to: Address, from: Address) -> Result<Vec<u8>> {
@@ -243,6 +243,18 @@ impl ExecutionEngine for AlloyExecutor {
     
     fn description(&self) -> &str {
         "AlloyExecutor: Uses Alloy providers for blockchain transaction execution"
+    }
+    
+    fn transport_type(&self) -> TransportType {
+        TransportType::Direct
+    }
+    
+    async fn check_async_status(&self, _request_id: &str) -> Result<AsyncStatus> {
+        Err(anyhow::anyhow!("AlloyExecutor uses direct execution - async status checking is not supported"))
+    }
+    
+    async fn get_transaction_hash(&self, _request_id: &str) -> Result<Option<String>> {
+        Err(anyhow::anyhow!("AlloyExecutor uses direct execution - async transaction hash retrieval is not supported"))
     }
 }
 
@@ -368,6 +380,7 @@ mod tests {
                 enabled: true,
                 data_file: "data/orders.json".to_string(),
             },
+            relayer: None,
         })
     }
 

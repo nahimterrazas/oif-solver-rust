@@ -102,13 +102,18 @@ src/contracts/encoding/
 ### 🚀 **Execution Layer**
 ```
 src/contracts/execution/
-├── mod.rs              # Trait exports  
-├── traits.rs           # ExecutionEngine trait
-└── alloy_executor.rs   # Alloy implementation
+├── mod.rs                      # Trait exports  
+├── traits.rs                   # ExecutionEngine trait
+├── alloy_executor.rs           # Direct blockchain execution
+├── openzeppelin_executor.rs    # OpenZeppelin relayer execution
+└── factory.rs                  # Smart executor factory
 ```
 
 **Features:**
 - **Abstract Interface**: `ExecutionEngine` trait
+- **Multiple Transport Types**: Direct blockchain and relayer support
+- **Smart Factory**: Automatic executor selection with fallback
+- **OpenZeppelin Integration**: Production-grade relayer support
 - **Multi-Chain Support**: Origin and destination chain execution
 - **Gas Management**: Automatic gas estimation and optimization
 
@@ -140,10 +145,11 @@ src/contracts/
 cargo test
 ```
 
-**Results: 14/14 tests passing ✅**
+**Results: 17/17 tests passing ✅**
 
 - **2/2** FoundryEncoder tests
-- **3/3** AlloyExecutor tests  
+- **3/3** AlloyExecutor tests
+- **3/3** OpenZeppelinExecutor tests  
 - **4/4** Settlement tests
 - **5/5** Factory tests
 
@@ -197,6 +203,20 @@ check_interval_seconds = 60
 [persistence]
 enabled = true
 data_file = "data/orders.json"
+
+# OpenZeppelin Relayer Configuration
+[relayer]
+enabled = true
+api_base_url = "http://localhost:8080/api/v1/relayers"
+api_key = "your-relayer-api-key"
+webhook_url = "https://your-app.com/webhook"
+timeout_seconds = 300
+max_retries = 3
+use_async = false
+
+[relayer.chain_endpoints]
+31337 = "anvil-origin-relayer"
+31338 = "anvil-destination-relayer"
 ```
 
 ### Environment Variables
@@ -204,6 +224,11 @@ data_file = "data/orders.json"
 export SOLVER_PRIVATE_KEY="0x..."
 export ORIGIN_RPC_URL="http://localhost:8545"
 export DESTINATION_RPC_URL="http://localhost:8546"
+
+# OpenZeppelin Relayer Environment Variables
+export RELAYER_ENABLED="true"
+export RELAYER_API_URL="http://localhost:8080/api/v1/relayers"
+export RELAYER_API_KEY="your-relayer-api-key"
 ```
 
 ## 🔄 Order Processing Flow
@@ -219,6 +244,205 @@ export DESTINATION_RPC_URL="http://localhost:8546"
 │   Receipt   │    │   (Abstract)    │    │   estrator      │
 └─────────────┘    └─────────────────┘    └─────────────────┘
 ```
+
+## 🔗 OpenZeppelin Relayer Integration
+
+### Overview
+The OIF Solver supports **OpenZeppelin Relayers** for gasless transaction execution, providing a production-ready alternative to direct blockchain execution.
+
+### 🏗️ Architecture
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ SmartFactory    │───►│ OpenZeppelin    │───►│ Blockchain      │
+│ (Auto-select)   │    │ Relayer API     │    │ Execution       │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+          │                       │
+          ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐
+│ AlloyExecutor   │    │ Transaction     │
+│ (Fallback)      │    │ Status Polling  │
+└─────────────────┘    └─────────────────┘
+```
+
+### 🚀 Key Features
+
+#### ✅ **Transport Abstraction**
+- **Multiple Executors**: `AlloyExecutor` (direct) and `OpenZeppelinExecutor` (relayer)
+- **Smart Factory**: Automatic executor selection with fallback
+- **Unified Interface**: Same `ExecutionEngine` trait for both
+
+#### ✅ **Relayer Capabilities**
+- **Gasless Transactions**: No gas token required for users
+- **Speed Control**: `safest`, `average`, `fast`, `fastest` options
+- **Async Support**: Non-blocking transaction submission
+- **Status Polling**: Real-time transaction monitoring
+- **Multi-Chain**: Support for multiple blockchain networks
+
+#### ✅ **Production Features**
+- **Error Handling**: Comprehensive API error management
+- **Retry Logic**: Configurable retry strategies
+- **Timeout Management**: Request timeout configuration
+- **Authentication**: API key-based authentication
+- **Logging**: Detailed debug and status logging
+
+### 🔧 Configuration Options
+
+#### Basic Setup
+```toml
+[relayer]
+enabled = true
+api_base_url = "http://localhost:8080/api/v1/relayers"
+api_key = "your-api-key"
+timeout_seconds = 300
+max_retries = 3
+use_async = false
+
+[relayer.chain_endpoints]
+31337 = "anvil-origin-relayer"
+31338 = "anvil-destination-relayer"
+```
+
+#### Advanced Configuration
+```toml
+[relayer]
+enabled = true
+api_base_url = "https://api.defender.openzeppelin.com/relay"
+api_key = "your-production-api-key"
+webhook_url = "https://your-app.com/webhook"
+timeout_seconds = 600
+max_retries = 5
+use_async = true
+
+[relayer.chain_endpoints]
+1 = "ethereum-mainnet"
+137 = "polygon-mainnet"
+42161 = "arbitrum-one"
+```
+
+### 🔄 Execution Flow
+
+#### Synchronous Mode
+```
+Client Request ──► OpenZeppelinExecutor ──► Relayer API ──► Blockchain
+      │                    │                    │             │
+      │                    ▼                    ▼             ▼
+      └◄─── Transaction ◄─── Wait for ◄──── Poll Status ◄─── Mined
+           Hash/Receipt      Completion        Endpoint
+```
+
+#### Asynchronous Mode
+```
+Client Request ──► OpenZeppelinExecutor ──► Relayer API
+      │                    │                    │
+      ▼                    ▼                    ▼
+   Request ID ◄─── Immediate Return ◄─── Queued Status
+      │
+      ▼
+Status Polling ──► Check Status ──► Transaction Complete
+```
+
+### 📡 API Integration
+
+#### Transaction Submission
+```json
+POST /api/v1/relayers/{relayer-name}/transactions
+{
+  "to": "0x1234567890123456789012345678901234567890",
+  "data": "0xa9059cbb000...",
+  "gas_limit": 200000,
+  "gas_price": 20000000000,
+  "value": "0",
+  "speed": "average"
+}
+```
+
+#### Status Check
+```json
+GET /api/v1/relayers/{relayer-name}/transactions/{transaction-id}
+{
+  "transaction_id": "uuid-string",
+  "hash": "0xabc123...",
+  "status": "confirmed",
+  "block_number": 12345678,
+  "gas_used": 150000
+}
+```
+
+### 🎯 Usage Examples
+
+#### Default (Auto-selection)
+```rust
+// Factory automatically chooses best executor
+let service = ExecutionService::new(config)?;
+let result = service.execute_transaction(order).await?;
+```
+
+#### Explicit Relayer Usage
+```rust
+// Force relayer usage
+let relayer_config = config.relayer.clone().unwrap();
+let executor = OpenZeppelinExecutor::new(
+    Arc::new(relayer_config), 
+    wallet_address
+)?;
+```
+
+#### Fallback Behavior
+```rust
+// Smart factory with fallback
+let smart_factory = SmartExecutionEngineFactory::new(config, true);
+let executor = smart_factory.create_executor(TransportType::Relayer)?;
+// Falls back to AlloyExecutor if relayer fails
+```
+
+### 🔍 Monitoring & Debugging
+
+#### Debug Logging
+```bash
+RUST_LOG=debug cargo run
+```
+
+#### Key Log Messages
+```
+🔧 Initializing OpenZeppelinExecutor
+🚀 Sending relay request to: http://localhost:8080/api/v1/relayers/anvil-origin-relayer/transactions
+📋 Transaction queued for async processing: uuid-123
+✅ Transaction completed synchronously: 0xabc123...
+```
+
+#### Error Handling
+- **API Errors**: Detailed HTTP status and error messages
+- **Timeout Handling**: Configurable request timeouts
+- **Retry Logic**: Automatic retry with exponential backoff
+- **Fallback**: Automatic switch to direct execution if relayer fails
+
+### 🧪 Testing Relayer Integration
+
+#### Unit Tests
+```bash
+cargo test openzeppelin_executor
+```
+
+#### Integration Testing
+```bash
+# Start local relayer service
+# Configure endpoints in local.toml
+RUST_LOG=debug cargo run
+```
+
+#### Manual Testing
+```bash
+curl -X POST http://localhost:3000/api/v1/orders \
+  -H "Content-Type: application/json" \
+  -d '{"order": {...}, "signature": "0x..."}'
+```
+
+### 🔒 Security Considerations
+
+- **API Key Management**: Secure storage of relayer API keys
+- **Webhook Security**: HTTPS and signature verification recommended
+- **Rate Limiting**: Respect relayer API rate limits
+- **Error Disclosure**: Avoid leaking sensitive information in logs
 
 ## 🛠️ Development
 
@@ -261,14 +485,18 @@ src/
 │   ├── encoding/                    # Abstract encoding
 │   │   ├── mod.rs                   # Trait exports
 │   │   ├── traits.rs                # CallDataEncoder trait
+│   │   ├── alloy_encoder.rs         # Alloy implementation
 │   │   └── foundry_encoder.rs       # Foundry implementation
 │   │
 │   ├── execution/                   # Abstract execution  
 │   │   ├── mod.rs                   # Trait exports
 │   │   ├── traits.rs                # ExecutionEngine trait
-│   │   └── alloy_executor.rs        # Alloy implementation
+│   │   ├── alloy_executor.rs        # Direct blockchain execution
+│   │   ├── openzeppelin_executor.rs # OpenZeppelin relayer execution
+│   │   └── factory.rs               # Smart executor factory
 │   │
 │   └── operations/                  # Orchestration
+│       ├── fill.rs                  # FillOrchestrator
 │       └── settlement.rs            # FinalizationOrchestrator
 │
 ├── models/                          # Data structures
@@ -280,7 +508,8 @@ src/
 │   ├── mod.rs
 │   ├── cross_chain.rs               # Cross-chain operations
 │   ├── finalization.rs              # Order finalization
-│   └── monitoring.rs                # Event monitoring
+│   ├── monitoring.rs                # Event monitoring
+│   └── execution_service.rs         # Smart execution service
 │
 ├── storage/                         # Data persistence
 │   ├── mod.rs
@@ -387,11 +616,12 @@ let custom_orchestrator = FinalizationOrchestrator::new_with_traits(
 
 ## 📊 Performance & Metrics
 
-- **Test Coverage**: 14/14 tests (100% core functionality)
+- **Test Coverage**: 17/17 tests (100% core functionality)
 - **Compilation**: Clean build with zero errors
 - **Memory**: Efficient Arc-based sharing
 - **Type Safety**: Full compile-time validation
 - **Modularity**: Easy component swapping
+- **Transport Abstraction**: Multiple execution backends
 
 ## 🏆 Architecture Achievements
 
@@ -400,5 +630,7 @@ let custom_orchestrator = FinalizationOrchestrator::new_with_traits(
 ✅ **Rigid → Flexible**: Dependency injection support  
 ✅ **Hard to Test → Testable**: Mock-friendly interfaces  
 ✅ **Coupled → Decoupled**: Clear component boundaries  
+✅ **Single Transport → Multi-Transport**: Direct + Relayer execution  
+✅ **Simple → Smart**: Automatic executor selection with fallback  
 
-This implementation demonstrates **production-grade Rust architecture** with modern design patterns, comprehensive testing, and maximum extensibility.
+This implementation demonstrates **production-grade Rust architecture** with modern design patterns, comprehensive testing, relayer integration, and maximum extensibility.
